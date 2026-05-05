@@ -1,3 +1,4 @@
+import { supabase } from './supabaseClient';
 import React, { useState, useEffect } from "react";
 import { 
   ArrowRight, ArrowLeft, Compass, Printer, Sparkles, History, Save, Check, 
@@ -883,10 +884,31 @@ export default function App() {
     setCurrentView("landing");
   };
 
-  const saveSession = (newSession) => {
-    setSessions(prev => [newSession, ...prev]);
-    handleViewReport(newSession, false); // Ouvre directement le rapport généré
-  };
+  const saveSession = async (newSession) => {
+  // 1. Mise à jour de l'interface locale (immédiate)
+  setSessions(prev => [newSession, ...prev]);
+  handleViewReport(newSession, false); 
+
+  // 2. Envoi silencieux à la base de données Supabase
+  try {
+    const { error } = await supabase
+      .from('evaluations')
+      .insert([
+        { 
+          subject: newSession.subject, 
+          future_axis: newSession.futureAxis, 
+          power_axis: newSession.powerAxis,
+          resilience_score: newSession.resilienceScore.total,
+          current_quadrant: newSession.currentQuadrant,
+          desired_quadrant: newSession.desiredQuadrant
+        }
+      ]);
+      
+    if (error) console.error("Erreur de sauvegarde:", error);
+  } catch (err) {
+    console.error("Erreur réseau:", err);
+  }
+};
 
   const handleViewReport = (session, shouldPrint = false) => {
     setSelectedSession(session);
