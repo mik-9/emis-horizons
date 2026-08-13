@@ -1,9 +1,9 @@
 import { isSupabaseConfigured, supabase } from './supabaseClient';
-import React, { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { 
-  ArrowRight, ArrowLeft, Compass, Printer, Sparkles, History, Save, Check, 
-  LogOut, Search, Target, Rocket, LayoutDashboard, Database, Lock, TrendingUp, 
-  ShieldCheck, FileText, ChevronRight, Plus, BrainCircuit
+  ArrowRight, ArrowLeft, Compass, Printer, Save,
+  LogOut, Search, Target, Rocket, LayoutDashboard, Database,
+  ShieldCheck, FileText, Plus, BrainCircuit
 } from "lucide-react";
 
 // --- UI COMPONENTS ---
@@ -98,8 +98,8 @@ const FutureMatrix = ({ x, y, size = "md", hideDot = false }) => {
       <div className="absolute top-1/2 left-0 w-full h-[2px] bg-slate-300 print:bg-slate-400" />
       <div className="absolute top-0 left-1/2 w-[2px] h-full bg-slate-300 print:bg-slate-400" />
       
-      <span className={`absolute top-2 left-1/2 -translate-x-1/2 font-semibold text-slate-500 uppercase tracking-wider bg-white/90 px-2 rounded-full shadow-sm print:shadow-none ${isPrint ? 'text-[8px]' : 'text-xs'}`}>Puissant</span>
-      <span className={`absolute bottom-2 left-1/2 -translate-x-1/2 font-semibold text-slate-500 uppercase tracking-wider bg-white/90 px-2 rounded-full shadow-sm print:shadow-none ${isPrint ? 'text-[8px]' : 'text-xs'}`}>Impuissant</span>
+      <span className={`absolute top-2 left-1/2 -translate-x-1/2 font-semibold text-slate-500 uppercase tracking-wider bg-white/90 px-2 rounded-full shadow-sm print:shadow-none ${isPrint ? 'text-[8px]' : 'text-xs'}`}>Forte marge d'action</span>
+      <span className={`absolute bottom-2 left-1/2 -translate-x-1/2 font-semibold text-slate-500 uppercase tracking-wider bg-white/90 px-2 rounded-full shadow-sm print:shadow-none ${isPrint ? 'text-[8px]' : 'text-xs'}`}>Faible marge d'action</span>
       <span className={`absolute top-1/2 right-2 -translate-y-1/2 font-semibold text-slate-500 uppercase tracking-wider bg-white/90 px-2 rounded-full shadow-sm print:shadow-none ${isPrint ? 'text-[8px] rotate-90 origin-right' : 'text-xs'}`}>Désirable</span>
       <span className={`absolute top-1/2 left-2 -translate-y-1/2 font-semibold text-slate-500 uppercase tracking-wider bg-white/90 px-2 rounded-full shadow-sm print:shadow-none ${isPrint ? 'text-[8px] -rotate-90 origin-left' : 'text-xs'}`}>Contraint</span>
       
@@ -116,10 +116,10 @@ const FutureMatrix = ({ x, y, size = "md", hideDot = false }) => {
 
 const QuadrantSelector = ({ value, onChange }) => {
   const options = [
-    { id: 1, title: "Quadrant 1 : Acteur du changement", desc: "Futur désirable / Agence forte" },
-    { id: 2, title: "Quadrant 2 : Résistant engagé", desc: "Futur contraint / Agence forte" },
-    { id: 3, title: "Quadrant 3 : Spectateur inquiet", desc: "Futur contraint / Agence faible" },
-    { id: 4, title: "Quadrant 4 : Observateur confiant", desc: "Futur désirable / Agence faible" },
+    { id: 1, title: "Quadrant 1 : Acteur du changement", desc: "Futur désirable / Marge d'action forte" },
+    { id: 2, title: "Quadrant 2 : Résistant engagé", desc: "Futur contraint / Marge d'action forte" },
+    { id: 3, title: "Quadrant 3 : Spectateur inquiet", desc: "Futur contraint / Marge d'action faible" },
+    { id: 4, title: "Quadrant 4 : Observateur confiant", desc: "Futur désirable / Marge d'action faible" },
   ];
 
   return (
@@ -142,23 +142,27 @@ const QuadrantSelector = ({ value, onChange }) => {
   );
 };
 
-const CrashTestCoach = ({ subject, currentQuadrant, desiredQuadrant, actionSteps, userPlan, onSimulatedAnalysis }) => {
+const GuidedSynthesis = ({ subject, currentQuadrant, desiredQuadrant, actionSteps, onAnalysis }) => {
   const [analyzing, setAnalyzing] = useState(false);
   const [analysis, setAnalysis] = useState(null);
 
   const getQuadrantName = (q) => ["Acteur du changement", "Résistant engagé", "Spectateur inquiet", "Observateur confiant"][q-1];
+  const isPlanComplete = Object.values(actionSteps).every((value) => value.trim().length >= 5);
 
   const generateAnalysis = () => {
     setAnalyzing(true);
     setTimeout(() => {
-      // Structure formatée pour le PDF
+      const planElements = [actionSteps.observe, actionSteps.act, actionSteps.transform].filter(Boolean);
+      const transition = currentQuadrant === desiredQuadrant
+        ? `Vous souhaitez consolider votre position « ${getQuadrantName(currentQuadrant)} ».`
+        : `Vous souhaitez évoluer de « ${getQuadrantName(currentQuadrant)} » vers « ${getQuadrantName(desiredQuadrant)} ».`;
       const result = {
-        diagnostic: `Ton positionnement "${getQuadrantName(currentQuadrant)}" est cohérent avec l'ambition de ce projet, mais tes scores révèlent une dynamique complexe. ${currentQuadrant === desiredQuadrant ? "Tu cherches à maintenir cette posture, ce qui nécessitera une grande constance." : `Tu souhaites basculer vers "${getQuadrantName(desiredQuadrant)}", ce qui imposera un changement de paradigme profond.`} Ta posture actuelle suggère que tu avances à la force du poignet dans un environnement que tu perçois comme potentiellement incertain.`,
-        vigilance: `L'épuisement du bâtisseur : Avec tes scores actuels, tu portes potentiellement beaucoup sur tes épaules. Sans une vision claire de l'avenir, tu risques l'épuisement avant d'atteindre l'échelle souhaitée.\n\nLe biais d'exécution : Tu te focalises sur tes actions de court terme. Or, le véritable saut stratégique ne vient pas seulement de l'outil, mais de la valeur perçue et du modèle d'affaires global.`,
-        reco: `Passe du mode "artisanat" au mode "système". Ton levier principal n'est pas d'accumuler les tâches, mais de déconnecter ton temps de ton revenu ou de ton impact direct. Délègue ce qui peut l'être et concentre-toi exclusivement sur la stratégie.\n\nQuestion puissante : Si tu devais atteindre cet objectif en n'y consacrant que 4 heures par semaine, quel verrou mental devrais-tu faire sauter aujourd'hui ?`
+        diagnostic: `Sujet analysé : « ${subject.trim()} ». ${transition} Cette synthèse met en relation votre objectif et les actions que vous avez vous-même formulées.`,
+        vigilance: `Vérifiez que chacun des ${planElements.length} éléments de votre plan décrit un résultat observable, une échéance et, si nécessaire, une personne ressource. Une intention générale ne permet pas encore de mesurer les progrès.`,
+        reco: `Commencez par l'action suivante : « ${actionSteps.act.trim()} ». Associez-lui un premier jalon réalisable sous sept jours. Pour vérifier son effet, observez : « ${actionSteps.observe.trim()} ». Votre transformation visée reste : « ${actionSteps.transform.trim()} ».`
       };
       setAnalysis(result);
-      if (onSimulatedAnalysis) onSimulatedAnalysis(result);
+      if (onAnalysis) onAnalysis(result);
       setAnalyzing(false);
     }, 1500);
   };
@@ -170,28 +174,23 @@ const CrashTestCoach = ({ subject, currentQuadrant, desiredQuadrant, actionSteps
           <BrainCircuit className="w-5 h-5 text-blue-400" />
         </div>
         <h3 className="font-bold text-lg flex items-center gap-2">
-          Coach IA : Crash-test
-          <span className="text-[10px] bg-gradient-to-r from-blue-500 to-purple-500 px-2 py-0.5 rounded-full font-bold tracking-wider uppercase">Pro</span>
+          Synthèse guidée
         </h3>
       </div>
       
-      {userPlan !== 'pro' ? (
-        <div className="relative z-10 p-4 bg-white/5 rounded-xl border border-white/10 text-center">
-          <Lock className="w-8 h-8 text-slate-400 mx-auto mb-2" />
-          <p className="text-sm text-slate-300 mb-4">Le Crash-Test par Intelligence Artificielle est réservé aux abonnés Pro.</p>
-          <Button variant="primary" size="sm">Mettre à niveau</Button>
-        </div>
-      ) : (
-        <div className="relative z-10">
+      <div className="relative z-10">
           {!analysis && !analyzing && (
-            <Button onClick={generateAnalysis} variant="outline" className="w-full bg-white/10 border-white/20 text-white hover:bg-white/20">
-              Générer une analyse critique
+            <Button onClick={generateAnalysis} disabled={!isPlanComplete} variant="outline" className="w-full bg-white/10 border-white/20 text-white hover:bg-white/20">
+              Générer une synthèse de mon plan
             </Button>
+          )}
+          {!analysis && !isPlanComplete && (
+            <p className="text-xs text-slate-400 mt-3">Renseignez les trois parties du plan pour générer une synthèse contextualisée.</p>
           )}
           {analyzing && (
             <div className="text-slate-400 text-sm flex items-center gap-2 animate-pulse">
               <div className="w-4 h-4 rounded-full border-2 border-blue-400 border-t-transparent animate-spin" />
-              Génération du rapport d'analyse en cours...
+              Préparation de la synthèse en cours...
             </div>
           )}
           {analysis && (
@@ -205,13 +204,12 @@ const CrashTestCoach = ({ subject, currentQuadrant, desiredQuadrant, actionSteps
                 <p className="text-slate-200 text-sm leading-relaxed whitespace-pre-wrap">{analysis.vigilance}</p>
               </div>
               <div className="bg-blue-900/30 p-4 rounded-xl border border-blue-500/30">
-                <h4 className="text-emerald-400 font-bold text-sm mb-2 uppercase tracking-wider">Recommandation du Coach</h4>
+                <h4 className="text-emerald-400 font-bold text-sm mb-2 uppercase tracking-wider">Prochaine étape recommandée</h4>
                 <p className="text-slate-200 text-sm leading-relaxed whitespace-pre-wrap">{analysis.reco}</p>
               </div>
             </div>
           )}
-        </div>
-      )}
+      </div>
       
       {/* Background glow */}
       <div className="absolute -top-24 -right-24 w-48 h-48 bg-blue-500/20 blur-3xl rounded-full pointer-events-none" />
@@ -239,13 +237,13 @@ const LandingPage = ({ onNavigate }) => (
     <main className="pt-32 pb-20 px-6 max-w-6xl mx-auto">
       <div className="text-center max-w-3xl mx-auto mb-20 animate-in fade-in slide-in-from-bottom-8 duration-700">
         <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-50 border border-blue-100 text-blue-600 text-sm font-semibold mb-6">
-          <BrainCircuit className="w-4 h-4" /> Analyse scientifique & IA intégrée
+          <BrainCircuit className="w-4 h-4" /> Autoévaluation prospective guidée
         </div>
         <h1 className="text-5xl md:text-6xl font-extrabold text-slate-900 mb-6 leading-tight tracking-tight">
           Cartographiez votre posture face au <span className="text-blue-600">changement.</span>
         </h1>
         <p className="text-xl text-slate-600 mb-10 leading-relaxed">
-          Le premier outil francophone d'auto-diagnostic de résilience prospective. Obtenez un rapport PDF détaillé, identifiez vos leviers d'action et contribuez à l'observatoire scientifique des transitions.
+          Structurez votre perception d'un changement, identifiez vos marges de manœuvre et repartez avec un plan d'action contextualisé.
         </p>
         <div className="flex flex-col sm:flex-row gap-4 justify-center">
           <Button variant="primary" size="lg" onClick={() => onNavigate('auth')} className="gap-2">
@@ -256,8 +254,8 @@ const LandingPage = ({ onNavigate }) => (
 
       <div className="grid md:grid-cols-3 gap-8 mb-32">
         {[
-          { icon: <Target className="w-6 h-6 text-emerald-600" />, title: "Matrice Prospective", desc: "Croisez votre 'Vision du futur' et votre 'Capacité d'agence' pour définir précisément votre posture (Acteur, Résistant...)." },
-          { icon: <FileText className="w-6 h-6 text-blue-600" />, title: "Rapport Haute Valeur", desc: "Générez un document PDF complet incluant votre Score de Résilience (Pouvoir, Optimisme, Clarté, Ambition)." },
+          { icon: <Target className="w-6 h-6 text-emerald-600" />, title: "Matrice prospective", desc: "Croisez votre vision du futur et votre marge de manœuvre pour situer votre posture actuelle." },
+          { icon: <FileText className="w-6 h-6 text-blue-600" />, title: "Rapport de réflexion", desc: "Retrouvez vos réponses, votre indice exploratoire et les prochaines étapes que vous avez formulées." },
           { icon: <Database className="w-6 h-6 text-purple-600" />, title: "Base Scientifique", desc: "En utilisant EMIS Horizons, vous enrichissez une base de données anonymisée pour faire avancer la recherche sur le changement." }
         ].map((feature, i) => (
           <div key={i} className="bg-white p-8 rounded-2xl border border-slate-200 shadow-sm hover:shadow-md transition-shadow">
@@ -405,7 +403,7 @@ const Dashboard = ({ user, sessions, onLogout, onNewSession, onViewReport }) => 
                 <h3 className="text-lg font-bold text-slate-900 mb-2 line-clamp-2" title={session.subject}>{session.subject}</h3>
                 
                 <div className="flex items-center gap-2 mb-6 text-sm">
-                  <div className="text-slate-500 font-medium">Résilience : <span className="font-bold text-slate-900">{session.resilienceScore?.total || 0}/100</span></div>
+                  <div className="text-slate-500 font-medium">Indice exploratoire : <span className="font-bold text-slate-900">{session.resilienceScore?.total || 0}/100</span></div>
                 </div>
 
                 <div className="flex gap-2">
@@ -430,6 +428,17 @@ const Dashboard = ({ user, sessions, onLogout, onNewSession, onViewReport }) => 
 const ReportView = ({ session, onBack, autoPrint }) => {
   const [showPrintWarning, setShowPrintWarning] = useState(false);
 
+  const handlePrint = useCallback(() => {
+    window.focus();
+    try {
+      window.print();
+      setShowPrintWarning(true);
+      setTimeout(() => setShowPrintWarning(false), 8000);
+    } catch (error) {
+      console.error("Impression bloquée :", error);
+    }
+  }, []);
+
   useEffect(() => {
     // Styling intensif pour l'impression A4
     const style = document.createElement("style");
@@ -453,18 +462,7 @@ const ReportView = ({ session, onBack, autoPrint }) => {
     }
 
     return () => document.head.removeChild(style);
-  }, [autoPrint]);
-
-  const handlePrint = () => {
-    window.focus();
-    try {
-      window.print();
-      setShowPrintWarning(true);
-      setTimeout(() => setShowPrintWarning(false), 8000); // Reste visible plus longtemps
-    } catch (e) {
-      console.error("Impression bloquée :", e);
-    }
-  };
+  }, [autoPrint, handlePrint]);
 
   if (!session) return null;
 
@@ -482,7 +480,7 @@ const ReportView = ({ session, onBack, autoPrint }) => {
   };
 
   const scores = session.resilienceScore || { total: 0, optimisme: 0, pouvoir: 0, clarte: 0, ambition: 0 };
-  const resilienceLabel = scores.total >= 75 ? "Élevée" : scores.total >= 45 ? "Moyenne" : "Basse";
+  const preparationLabel = scores.total >= 75 ? "Élevé" : scores.total >= 45 ? "Intermédiaire" : "À consolider";
 
   return (
     <div className="min-h-screen bg-slate-100 flex flex-col items-center py-8 print:py-0 print:bg-white overflow-x-hidden">
@@ -539,37 +537,37 @@ const ReportView = ({ session, onBack, autoPrint }) => {
             </div>
           </div>
           <div>
-            <h2 className="text-xl font-bold text-blue-700 mb-4 uppercase tracking-wider flex items-center gap-2 border-l-4 border-blue-600 pl-3">3. Capacité d'agence</h2>
+            <h2 className="text-xl font-bold text-blue-700 mb-4 uppercase tracking-wider flex items-center gap-2 border-l-4 border-blue-600 pl-3">3. Marge de manœuvre</h2>
             <div className="flex justify-between text-xs font-bold text-slate-400 mb-2 uppercase">
-              <span>Subi (Impuissant)</span><span>Acteur (Puissant)</span>
+              <span>Peu de leviers</span><span>Plusieurs leviers</span>
             </div>
             <div className="h-3 bg-slate-100 rounded-full overflow-hidden relative border border-slate-200">
               <div className="absolute top-0 bottom-0 left-1/2 w-0.5 bg-slate-300"></div>
               <div className="h-full bg-blue-500 rounded-full" style={{ width: `${Math.max(0, (session.powerAxis + 100) / 2)}%` }}></div>
             </div>
             <div className="text-center mt-2 font-bold text-sm text-slate-700">
-              Score: {session.powerAxis > 0 ? `Acteur (+${session.powerAxis}%)` : `Subi (${session.powerAxis}%)`}
+              Score: {session.powerAxis > 0 ? `Marge forte (+${session.powerAxis}%)` : session.powerAxis < 0 ? `Marge limitée (${session.powerAxis}%)` : "Marge intermédiaire"}
             </div>
           </div>
         </div>
 
         {/* 4. Score de résilience */}
         <div className="mb-10 bg-slate-50 rounded-2xl p-6 border border-slate-200 avoid-break">
-          <h2 className="text-xl font-bold text-blue-700 mb-4 uppercase tracking-wider flex items-center gap-2 border-l-4 border-blue-600 pl-3">4. Score de résilience prospective</h2>
+          <h2 className="text-xl font-bold text-blue-700 mb-4 uppercase tracking-wider flex items-center gap-2 border-l-4 border-blue-600 pl-3">4. Indice exploratoire de préparation</h2>
           <div className="flex items-center gap-8">
             <div className="w-24 h-24 rounded-full border-8 border-emerald-500 flex flex-col items-center justify-center shrink-0 bg-white shadow-sm">
               <span className="text-3xl font-black text-slate-900 leading-none">{scores.total}</span>
               <span className="text-xs font-bold text-slate-400">/ 100</span>
             </div>
             <div className="flex-1">
-              <div className="text-lg font-bold text-slate-800 mb-3">Résilience : {resilienceLabel}</div>
+              <div className="text-lg font-bold text-slate-800 mb-3">Niveau indicatif : {preparationLabel}</div>
               <div className="flex flex-wrap gap-x-6 gap-y-2 text-sm font-medium text-slate-600">
                 <span>Pouvoir <strong className="text-slate-900">{scores.pouvoir}/40</strong></span>
                 <span>Optimisme <strong className="text-slate-900">{scores.optimisme}/25</strong></span>
                 <span>Clarté <strong className="text-slate-900">{scores.clarte}/15</strong></span>
-                <span>Ambition <strong className="text-slate-900">{scores.ambition}/20</strong></span>
+                <span>Transformation recherchée <strong className="text-slate-900">{scores.ambition}/20</strong></span>
               </div>
-              <p className="text-xs text-slate-500 mt-3 italic">Ce score mesure votre capacité d'adaptation face aux transformations à venir, basé sur vos réponses comportementales.</p>
+              <p className="text-xs text-slate-500 mt-3 italic">Indice exploratoire basé sur vos réponses. Il soutient la réflexion et ne constitue pas une mesure psychologique ou scientifique validée.</p>
             </div>
           </div>
         </div>
@@ -625,10 +623,10 @@ const ReportView = ({ session, onBack, autoPrint }) => {
           </div>
         </div>
 
-        {/* 8. Coach IA */}
+        {/* 8. Synthèse guidée */}
         {session.aiAnalysis && (
           <div className="avoid-break">
-            <h2 className="text-xl font-bold text-blue-700 mb-6 uppercase tracking-wider flex items-center gap-2 border-l-4 border-blue-600 pl-3">8. Crash-test du Coach IA</h2>
+            <h2 className="text-xl font-bold text-blue-700 mb-6 uppercase tracking-wider flex items-center gap-2 border-l-4 border-blue-600 pl-3">8. Synthèse guidée</h2>
             <div className="bg-slate-50 border border-slate-200 p-6 rounded-2xl space-y-6">
               <div>
                 <h4 className="text-slate-900 font-bold text-sm mb-2 uppercase tracking-wider flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-blue-500"/> Diagnostic express</h4>
@@ -641,7 +639,7 @@ const ReportView = ({ session, onBack, autoPrint }) => {
               </div>
               <div className="h-px w-full bg-slate-200" />
               <div className="bg-white p-5 rounded-xl border border-emerald-100 shadow-sm">
-                <h4 className="text-emerald-700 font-bold text-sm mb-2 uppercase tracking-wider flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-emerald-500"/> Recommandation du Coach</h4>
+                <h4 className="text-emerald-700 font-bold text-sm mb-2 uppercase tracking-wider flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-emerald-500"/> Prochaine étape recommandée</h4>
                 <p className="text-slate-800 text-sm leading-relaxed whitespace-pre-wrap font-medium">{session.aiAnalysis.reco}</p>
               </div>
             </div>
@@ -659,18 +657,19 @@ const ReportView = ({ session, onBack, autoPrint }) => {
 
 // --- ASSESSMENT TOOL ---
 
-const AssessmentTool = ({ user, onSave, onCancel }) => {
+const AssessmentTool = ({ onSave, onCancel }) => {
   const TOTAL_STEPS = 7; // Ajout d'une étape pour les sous-scores
   const [step, setStep] = useState(0);
   const [subject, setSubject] = useState("");
   
   // Axes principaux
   const [futureAxis, setFutureAxis] = useState(0); // Vision du futur
-  const [powerAxis, setPowerAxis] = useState(0); // Capacité d'agence
+  const [powerAxis, setPowerAxis] = useState(0); // Marge de manœuvre perçue
   
-  // Sous-scores pour Résilience Prospective
+  // Dimensions complémentaires de l'indice exploratoire
   const [clarity, setClarity] = useState(7); // 0-15
   const [ambition, setAmbition] = useState(10); // 0-20
+  const [answered, setAnswered] = useState({ future: false, power: false, clarity: false, transformation: false });
   
   const [desiredQuadrant, setDesiredQuadrant] = useState(null);
   const [actionSteps, setActionSteps] = useState({ observe: "", act: "", transform: "" });
@@ -699,7 +698,10 @@ const AssessmentTool = ({ user, onSave, onCancel }) => {
   };
 
   const canProceed = () => {
-    if (step === 0) return subject.trim().length > 0;
+    if (step === 0) return subject.trim().length >= 10;
+    if (step === 1) return answered.future;
+    if (step === 2) return answered.power;
+    if (step === 3) return answered.clarity && answered.transformation;
     if (step === 5) return desiredQuadrant !== null;
     return true;
   };
@@ -741,7 +743,7 @@ const AssessmentTool = ({ user, onSave, onCancel }) => {
       <main className="flex-1 max-w-4xl w-full mx-auto p-6 py-12">
         {step === 0 && (
           <QuestionnaireStep title="1. Quel sujet d'avenir vous préoccupe ?" description="Personnel, professionnel, sociétal… Identifiez la transformation qui compte le plus pour vous en ce moment.">
-            <Textarea value={subject} onChange={(e) => setSubject(e.target.value)} placeholder="Ex : Accroître fortement mon CA et multiplier mon revenu par 10..." className="min-h-[160px] text-base" />
+            <Textarea value={subject} onChange={(e) => setSubject(e.target.value)} placeholder="Ex. : Réussir mon examen, faire évoluer mon activité ou mieux m'adapter à un changement..." className="min-h-[160px] text-base" />
           </QuestionnaireStep>
         )}
         
@@ -751,7 +753,7 @@ const AssessmentTool = ({ user, onSave, onCancel }) => {
               <div className="flex justify-between text-sm font-bold text-slate-500 mb-6 uppercase tracking-wider">
                 <span className="text-rose-500">Futur contraint</span><span className="text-emerald-500">Futur désirable</span>
               </div>
-              <Slider value={[futureAxis]} onValueChange={([v]) => setFutureAxis(v)} min={-100} max={100} step={1} />
+              <Slider value={[futureAxis]} onValueChange={([v]) => { setFutureAxis(v); setAnswered((previous) => ({ ...previous, future: true })); }} min={-100} max={100} step={1} />
               <div className="text-center mt-8 font-bold text-slate-700">
                 {futureAxis === 0 ? "Neutre" : futureAxis > 0 ? `Désirable (+${futureAxis}%)` : `Contraint (${futureAxis}%)`}
               </div>
@@ -760,21 +762,21 @@ const AssessmentTool = ({ user, onSave, onCancel }) => {
         )}
 
         {step === 2 && (
-          <QuestionnaireStep title="3. Votre Capacité d'agence" description="Vous sentez-vous plutôt acteur (avec des leviers d'action) ou soumis à cette transformation ?">
+          <QuestionnaireStep title="3. Votre marge de manœuvre" description="Face à ce sujet, dans quelle mesure pouvez-vous influencer la situation, mobiliser de l'aide ou adapter votre manière d'agir ?">
             <div className="bg-white rounded-2xl border border-slate-200 p-8 shadow-sm">
               <div className="flex justify-between text-sm font-bold text-slate-500 mb-6 uppercase tracking-wider">
-                <span className="text-amber-500">Subi (Impuissant)</span><span className="text-blue-500">Acteur (Puissant)</span>
+                <span className="text-amber-500">Peu de leviers actuellement</span><span className="text-blue-500">Plusieurs leviers concrets</span>
               </div>
-              <Slider value={[powerAxis]} onValueChange={([v]) => setPowerAxis(v)} min={-100} max={100} step={1} />
+              <Slider value={[powerAxis]} onValueChange={([v]) => { setPowerAxis(v); setAnswered((previous) => ({ ...previous, power: true })); }} min={-100} max={100} step={1} />
               <div className="text-center mt-8 font-bold text-slate-700">
-                {powerAxis === 0 ? "Neutre" : powerAxis > 0 ? `Acteur (+${powerAxis}%)` : `Subi (${powerAxis}%)`}
+                {powerAxis === 0 ? "Marge intermédiaire" : powerAxis > 0 ? `Marge plutôt forte (+${powerAxis}%)` : `Marge plutôt limitée (${powerAxis}%)`}
               </div>
             </div>
           </QuestionnaireStep>
         )}
 
         {step === 3 && (
-          <QuestionnaireStep title="4. Résilience Prospective" description="Pour calculer votre score scientifique complet, affinons deux dernières dimensions.">
+          <QuestionnaireStep title="4. Préparation au changement" description="Cet indice exploratoire aide à structurer votre réflexion ; il ne constitue pas une mesure psychologique ou scientifique validée.">
             <div className="space-y-8">
               <div className="bg-white rounded-2xl border border-slate-200 p-8 shadow-sm">
                 <h3 className="font-bold text-slate-900 mb-2">Clarté de la vision</h3>
@@ -782,16 +784,16 @@ const AssessmentTool = ({ user, onSave, onCancel }) => {
                 <div className="flex justify-between text-xs font-bold text-slate-400 mb-4 uppercase tracking-wider">
                   <span>Vision floue</span><span>Vision très claire</span>
                 </div>
-                <Slider value={[clarity]} onValueChange={([v]) => setClarity(v)} min={0} max={15} step={1} />
+                <Slider value={[clarity]} onValueChange={([v]) => { setClarity(v); setAnswered((previous) => ({ ...previous, clarity: true })); }} min={0} max={15} step={1} />
               </div>
               
               <div className="bg-white rounded-2xl border border-slate-200 p-8 shadow-sm">
-                <h3 className="font-bold text-slate-900 mb-2">Niveau d'ambition</h3>
-                <p className="text-sm text-slate-500 mb-6">Cherchez-vous simplement à vous maintenir, ou à vous déployer radicalement ?</p>
+                <h3 className="font-bold text-slate-900 mb-2">Ampleur du changement recherché</h3>
+                <p className="text-sm text-slate-500 mb-6">Quel niveau d'évolution vous paraît à la fois souhaitable et soutenable dans votre contexte ? Stabiliser une situation peut être un objectif pleinement pertinent.</p>
                 <div className="flex justify-between text-xs font-bold text-slate-400 mb-4 uppercase tracking-wider">
-                  <span>Maintien (Prudence)</span><span>Déploiement (Audace)</span>
+                  <span>Stabiliser</span><span>Transformer en profondeur</span>
             </div>
-                <Slider value={[ambition]} onValueChange={([v]) => setAmbition(v)} min={0} max={20} step={1} />
+                <Slider value={[ambition]} onValueChange={([v]) => { setAmbition(v); setAnswered((previous) => ({ ...previous, transformation: true })); }} min={0} max={20} step={1} />
               </div>
             </div>
           </QuestionnaireStep>
@@ -819,7 +821,8 @@ const AssessmentTool = ({ user, onSave, onCancel }) => {
               <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-sm space-y-4">
                 <div className="space-y-2">
                   <div className="flex items-center gap-2 text-blue-600 font-bold text-sm uppercase tracking-wider"><Search className="w-4 h-4"/> 1. Observer</div>
-                  <Textarea value={actionSteps.observe} onChange={(e) => setActionSteps(prev => ({...prev, observe: e.target.value}))} placeholder="Quels signaux faibles devez-vous surveiller ?" />
+                  <p className="text-sm text-slate-500">Repérez des indices observables qui montrent assez tôt si vous progressez ou vous éloignez de l'objectif.</p>
+                  <Textarea value={actionSteps.observe} onChange={(e) => setActionSteps(prev => ({...prev, observe: e.target.value}))} placeholder="Ex. examen : score aux annales, erreurs récurrentes, chapitres maîtrisés, fatigue ou régularité du travail." />
                 </div>
                 <div className="space-y-2">
                   <div className="flex items-center gap-2 text-amber-600 font-bold text-sm uppercase tracking-wider"><Target className="w-4 h-4"/> 2. Agir</div>
@@ -830,13 +833,12 @@ const AssessmentTool = ({ user, onSave, onCancel }) => {
                   <Textarea value={actionSteps.transform} onChange={(e) => setActionSteps(prev => ({...prev, transform: e.target.value}))} placeholder="Quel changement profond visez-vous ?" />
                 </div>
               </div>
-              <CrashTestCoach 
+              <GuidedSynthesis
                 subject={subject} 
                 currentQuadrant={getQuadrant()} 
                 desiredQuadrant={desiredQuadrant} 
                 actionSteps={actionSteps} 
-                userPlan={user.plan} 
-                onSimulatedAnalysis={setAiAnalysis}
+                onAnalysis={setAiAnalysis}
               />
             </div>
           </QuestionnaireStep>
@@ -849,9 +851,12 @@ const AssessmentTool = ({ user, onSave, onCancel }) => {
             <ArrowLeft className="w-4 h-4 mr-2" /> Précédent
           </Button>
           {step < TOTAL_STEPS - 1 ? (
-            <Button variant="primary" onClick={next} disabled={!canProceed()}>
-              Continuer <ArrowRight className="w-4 h-4 ml-2" />
-            </Button>
+            <div className="text-right">
+              <Button variant="primary" onClick={next} disabled={!canProceed()}>
+                Continuer <ArrowRight className="w-4 h-4 ml-2" />
+              </Button>
+              {!canProceed() && <p className="text-xs text-slate-500 mt-2">Répondez à cette étape pour continuer.</p>}
+            </div>
           ) : (
             <Button variant="primary" onClick={handleSave} disabled={!aiAnalysis} className="bg-emerald-600 hover:bg-emerald-700 shadow-emerald-500/30">
               <Save className="w-4 h-4 mr-2" /> Terminer & Générer le PDF
