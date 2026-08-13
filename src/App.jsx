@@ -444,15 +444,38 @@ const ReportView = ({ session, onBack, autoPrint }) => {
     const style = document.createElement("style");
     style.innerHTML = `
       @media print {
-        @page { size: A4 portrait; margin: 15mm; }
-        html, body { background: white !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+        @page { size: A4 portrait; margin: 0; }
+        html, body, #root {
+          width: auto !important; min-width: 0 !important; margin: 0 !important;
+          padding: 0 !important; overflow: visible !important; background: white !important;
+          -webkit-print-color-adjust: exact; print-color-adjust: exact;
+        }
         .no-print { display: none !important; }
         .print\\:shadow-none { box-shadow: none !important; border: none !important; }
         .print\\:my-0 { margin-top: 0 !important; margin-bottom: 0 !important; }
         .print\\:p-0 { padding: 0 !important; }
         .print\\:text-sm { font-size: 0.875rem !important; }
-        .page-break { page-break-before: always; break-before: page; margin-top: 2rem; }
+        .report-shell { display: block !important; width: auto !important; min-height: 0 !important; padding: 0 !important; overflow: visible !important; }
+        .report-document {
+          width: 210mm !important; max-width: 210mm !important; min-height: 0 !important;
+          margin: 0 !important; padding: 0 !important; overflow: visible !important;
+          box-sizing: border-box !important; box-shadow: none !important;
+        }
+        .report-page {
+          display: block !important; width: 210mm !important; height: 297mm !important;
+          min-height: 297mm !important; margin: 0 !important; padding: 12mm !important;
+          overflow: hidden !important; box-sizing: border-box !important; background: white !important;
+        }
+        .report-page-one { page-break-after: always; break-after: page; }
+        .report-page-two { page-break-after: auto; break-after: auto; }
         .avoid-break { page-break-inside: avoid; break-inside: avoid; }
+        .report-page-two { font-size: 9pt; }
+        .report-page-two .report-section { margin-bottom: 5mm !important; }
+        .report-page-two .report-heading { margin-bottom: 3mm !important; }
+        .report-page-two .report-card { padding: 3mm !important; }
+        .report-page-two .report-synthesis { page-break-inside: auto !important; break-inside: auto !important; }
+        .report-page-two .report-synthesis > div { padding: 4mm !important; gap: 3mm !important; }
+        .report-footer { margin-top: 5mm !important; padding-top: 3mm !important; }
       }
     `;
     document.head.appendChild(style);
@@ -483,7 +506,7 @@ const ReportView = ({ session, onBack, autoPrint }) => {
   const preparationLabel = scores.total >= 75 ? "Élevé" : scores.total >= 45 ? "Intermédiaire" : "À consolider";
 
   return (
-    <div className="min-h-screen bg-slate-100 flex flex-col items-center py-8 print:py-0 print:bg-white overflow-x-hidden">
+    <div className="report-shell min-h-screen bg-slate-100 flex flex-col items-center py-8 print:py-0 print:bg-white overflow-x-hidden">
       <header className="fixed top-0 w-full bg-white/90 backdrop-blur border-b border-slate-200 z-50 p-4 flex justify-between items-center no-print shadow-sm">
         <Button variant="ghost" onClick={onBack} className="text-slate-600">
           <ArrowLeft className="w-4 h-4 mr-2" /> Quitter le rapport
@@ -501,7 +524,9 @@ const ReportView = ({ session, onBack, autoPrint }) => {
       </header>
 
       {/* DOCUMENT A4 */}
-      <div className="w-[210mm] min-h-[297mm] bg-white mt-16 p-[15mm] shadow-2xl print:shadow-none print:mt-0 print:p-0 text-slate-900 font-sans">
+      <div className="report-document w-[210mm] mt-16 shadow-2xl print:shadow-none print:mt-0 text-slate-900 font-sans">
+
+        <section className="report-page report-page-one w-[210mm] min-h-[297mm] bg-white p-[15mm]">
         
         {/* En-tête */}
         <div className="border-b-2 border-slate-900 pb-6 mb-8 flex justify-between items-end">
@@ -594,29 +619,31 @@ const ReportView = ({ session, onBack, autoPrint }) => {
           </div>
         </div>
 
-        <div className="page-break" />
+        </section>
+
+        <section className="report-page report-page-two w-[210mm] min-h-[297mm] bg-white p-[15mm] mt-4 print:mt-0">
 
         {/* 6. Projection */}
-        <div className="mb-10 avoid-break">
-          <h2 className="text-xl font-bold text-blue-700 mb-4 uppercase tracking-wider flex items-center gap-2 border-l-4 border-blue-600 pl-3">6. Ma projection souhaitée</h2>
+        <div className="report-section mb-10 avoid-break">
+          <h2 className="report-heading text-xl font-bold text-blue-700 mb-4 uppercase tracking-wider flex items-center gap-2 border-l-4 border-blue-600 pl-3">6. Ma projection souhaitée</h2>
           <div className="text-lg">
             Je souhaite évoluer vers / maintenir : <strong className="text-blue-600">{getQuadrantName(session.desiredQuadrant)}</strong>
           </div>
         </div>
 
         {/* 7. Plan d'action */}
-        <div className="mb-10 avoid-break">
-          <h2 className="text-xl font-bold text-blue-700 mb-6 uppercase tracking-wider flex items-center gap-2 border-l-4 border-blue-600 pl-3">7. Mon plan d'action</h2>
+        <div className="report-section mb-10 avoid-break">
+          <h2 className="report-heading text-xl font-bold text-blue-700 mb-6 uppercase tracking-wider flex items-center gap-2 border-l-4 border-blue-600 pl-3">7. Mon plan d'action</h2>
           <div className="grid grid-cols-3 gap-6">
-            <div className="border border-slate-300 p-5 rounded-xl bg-white shadow-sm">
+            <div className="report-card border border-slate-300 p-5 rounded-xl bg-white shadow-sm">
               <div className="text-sm font-black text-blue-600 uppercase tracking-widest mb-3 flex items-center gap-2">1. Observer</div>
               <p className="text-sm text-slate-800 leading-relaxed">{session.actionSteps?.observe || "—"}</p>
             </div>
-            <div className="border border-slate-300 p-5 rounded-xl bg-white shadow-sm">
+            <div className="report-card border border-slate-300 p-5 rounded-xl bg-white shadow-sm">
               <div className="text-sm font-black text-amber-600 uppercase tracking-widest mb-3 flex items-center gap-2">2. Agir</div>
               <p className="text-sm text-slate-800 leading-relaxed">{session.actionSteps?.act || "—"}</p>
             </div>
-            <div className="border border-slate-300 p-5 rounded-xl bg-white shadow-sm">
+            <div className="report-card border border-slate-300 p-5 rounded-xl bg-white shadow-sm">
               <div className="text-sm font-black text-emerald-600 uppercase tracking-widest mb-3 flex items-center gap-2">3. Transformer</div>
               <p className="text-sm text-slate-800 leading-relaxed">{session.actionSteps?.transform || "—"}</p>
             </div>
@@ -625,8 +652,8 @@ const ReportView = ({ session, onBack, autoPrint }) => {
 
         {/* 8. Synthèse guidée */}
         {session.aiAnalysis && (
-          <div className="avoid-break">
-            <h2 className="text-xl font-bold text-blue-700 mb-6 uppercase tracking-wider flex items-center gap-2 border-l-4 border-blue-600 pl-3">8. Synthèse guidée</h2>
+          <div className="report-synthesis">
+            <h2 className="report-heading text-xl font-bold text-blue-700 mb-6 uppercase tracking-wider flex items-center gap-2 border-l-4 border-blue-600 pl-3">8. Synthèse guidée</h2>
             <div className="bg-slate-50 border border-slate-200 p-6 rounded-2xl space-y-6">
               <div>
                 <h4 className="text-slate-900 font-bold text-sm mb-2 uppercase tracking-wider flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-blue-500"/> Diagnostic express</h4>
@@ -646,9 +673,11 @@ const ReportView = ({ session, onBack, autoPrint }) => {
           </div>
         )}
 
-        <div className="mt-12 pt-6 border-t border-slate-200 text-center text-xs text-slate-400 font-medium">
+        <div className="report-footer mt-12 pt-6 border-t border-slate-200 text-center text-xs text-slate-400 font-medium">
           EMIS Horizons - Observatoire Scientifique des Transitions • Document généré le {new Date(session.date).toLocaleDateString('fr-FR')}
         </div>
+
+        </section>
 
       </div>
     </div>
