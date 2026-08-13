@@ -1,4 +1,4 @@
-import { supabase } from './supabaseClient';
+import { isSupabaseConfigured, supabase } from './supabaseClient';
 import React, { useState, useEffect } from "react";
 import { 
   ArrowRight, ArrowLeft, Compass, Printer, Sparkles, History, Save, Check, 
@@ -891,6 +891,11 @@ export default function App() {
 
   // 2. Envoi silencieux à la base de données Supabase
   try {
+    if (!isSupabaseConfigured) {
+      console.warn("Supabase n'est pas configuré. L'évaluation reste disponible localement.");
+      return;
+    }
+
     const { error } = await supabase
       .from('evaluations')
       .insert([

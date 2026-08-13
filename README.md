@@ -1,5 +1,18 @@
 # React + Vite
 
+## Configuration locale
+
+Copiez `.env.example` vers `.env.local`, puis remplacez les valeurs d'exemple
+par l'URL et la clé anonyme de votre projet Supabase :
+
+```powershell
+Copy-Item .env.example .env.local
+npm run dev
+```
+
+Sans ce fichier, l'interface reste accessible en local, mais les évaluations ne
+sont pas enregistrées dans Supabase.
+
 This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
 
 Currently, two official plugins are available:
