@@ -1,0 +1,81 @@
+/* Screen sheet and print area have different widths: A4 minus page margins. */
+.report-view { padding-bottom: 2rem; }
+.report-document {
+  box-sizing: border-box;
+  width: min(210mm, 100%);
+  margin: 2rem auto 0;
+  padding: clamp(1rem, 4vw, 15mm);
+  overflow-wrap: anywhere;
+}
+.report-document :is(.grid, .flex) > * { min-width: 0; }
+.report-meta { flex: 0 0 34mm; }
+.report-response { white-space: pre-wrap; }
+.report-document h2 { text-wrap: balance; }
+
+@media screen and (max-width: 600px) {
+  .report-heading { display: block; }
+  .report-heading h1 { font-size: 1.8rem; }
+  .report-meta { text-align: left; margin-top: 1rem; }
+  .report-score { flex-wrap: wrap; gap: 1rem; }
+}
+
+@media print {
+  @page { size: A4 portrait; margin: 15mm; }
+  html, body, #root {
+    width: auto !important;
+    min-width: 0 !important;
+    height: auto !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: white !important;
+    overflow: visible !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  .report-view {
+    display: block;
+    min-height: 0;
+    padding: 0;
+    background: white;
+    overflow: visible;
+  }
+  .no-print { display: none !important; }
+  .report-document {
+    display: block;
+    width: 100%;
+    max-width: none;
+    min-height: 0;
+    margin: 0;
+    padding: 0;
+    box-shadow: none;
+    font-size: 10pt;
+    line-height: 1.4;
+    overflow: visible;
+  }
+  .report-document h1 { font-size: 22pt; line-height: 1.15; }
+  .report-document h2 { font-size: 12pt; line-height: 1.3; margin-bottom: 3mm; }
+  .report-document :is(h2, h4) { break-after: avoid; }
+  .report-document p, .report-document li { font-size: 10pt; line-height: 1.4; orphans: 3; widows: 3; }
+  .report-document .text-xs { font-size: 8pt; }
+  .report-document .text-sm { font-size: 9pt; }
+  .report-document .text-lg { font-size: 11pt; }
+  .report-document .text-2xl { font-size: 16pt; }
+  .report-document .mb-8, .report-document .mb-10 { margin-bottom: 5mm; }
+  .report-document .p-6 { padding: 4mm; }
+  .report-document .p-5 { padding: 3mm; }
+  .report-heading { padding-bottom: 4mm; align-items: flex-start; }
+  .report-columns { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 6mm; }
+  .report-score { gap: 5mm; }
+  .report-document .future-matrix > .grid { opacity: 1; }
+  .report-document .future-matrix > .grid span { color: #475569; }
+  .avoid-break { break-inside: avoid; }
+  .report-projection { break-before: page; }
+  /* Vertical blocks paginate long answers reliably; never clip fixed-height cards. */
+  .report-action-list { display: block; }
+  .report-action-card { margin-bottom: 3mm; break-inside: avoid; box-shadow: none; }
+  .report-synthesis { break-inside: auto; }
+  .report-synthesis > div { background: white; border: 0; padding: 0; }
+  .report-synthesis > div > div { break-inside: avoid; }
+  .report-synthesis .h-px { display: none; }
+  .report-footer { margin-top: 6mm; padding-top: 3mm; break-inside: avoid; }
+}
