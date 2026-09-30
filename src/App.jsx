@@ -1,5 +1,6 @@
 import { isSupabaseConfigured, supabase } from './supabaseClient';
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
+import "./report.css";
 import { 
   ArrowRight, ArrowLeft, Compass, Printer, Save,
   LogOut, Search, Target, Rocket, LayoutDashboard, Database,
@@ -77,7 +78,7 @@ const FutureMatrix = ({ x, y, size = "md", hideDot = false }) => {
   const isPrint = size === "print";
 
   return (
-    <div className={`relative mx-auto aspect-square bg-white border border-slate-200 shadow-sm overflow-hidden p-2 md:p-4
+    <div className={`future-matrix relative mx-auto aspect-square bg-white border border-slate-200 shadow-sm overflow-hidden p-2 md:p-4
       ${size === "md" ? "w-full max-w-md rounded-2xl" : ""}
       ${size === "sm" ? "w-full max-w-xs rounded-xl" : ""}
       ${isPrint ? "w-64 rounded-xl border-2 print:border-slate-300" : ""}
@@ -142,29 +143,22 @@ const QuadrantSelector = ({ value, onChange }) => {
   );
 };
 
-const GuidedSynthesis = ({ subject, currentQuadrant, desiredQuadrant, actionSteps, onAnalysis }) => {
-  const [analyzing, setAnalyzing] = useState(false);
-  const [analysis, setAnalysis] = useState(null);
+const GuidedSynthesis = ({ subject, currentQuadrant, desiredQuadrant, actionSteps, analysis, onAnalysis }) => {
 
   const getQuadrantName = (q) => ["Acteur du changement", "Résistant engagé", "Spectateur inquiet", "Observateur confiant"][q-1];
   const isPlanComplete = Object.values(actionSteps).every((value) => value.trim().length >= 5);
 
   const generateAnalysis = () => {
-    setAnalyzing(true);
-    setTimeout(() => {
-      const planElements = [actionSteps.observe, actionSteps.act, actionSteps.transform].filter(Boolean);
-      const transition = currentQuadrant === desiredQuadrant
-        ? `Vous souhaitez consolider votre position « ${getQuadrantName(currentQuadrant)} ».`
-        : `Vous souhaitez évoluer de « ${getQuadrantName(currentQuadrant)} » vers « ${getQuadrantName(desiredQuadrant)} ».`;
-      const result = {
-        diagnostic: `Sujet analysé : « ${subject.trim()} ». ${transition} Cette synthèse met en relation votre objectif et les actions que vous avez vous-même formulées.`,
-        vigilance: `Vérifiez que chacun des ${planElements.length} éléments de votre plan décrit un résultat observable, une échéance et, si nécessaire, une personne ressource. Une intention générale ne permet pas encore de mesurer les progrès.`,
-        reco: `Commencez par l'action suivante : « ${actionSteps.act.trim()} ». Associez-lui un premier jalon réalisable sous sept jours. Pour vérifier son effet, observez : « ${actionSteps.observe.trim()} ». Votre transformation visée reste : « ${actionSteps.transform.trim()} ».`
-      };
-      setAnalysis(result);
-      if (onAnalysis) onAnalysis(result);
-      setAnalyzing(false);
-    }, 1500);
+    const planElements = [actionSteps.observe, actionSteps.act, actionSteps.transform].filter(Boolean);
+    const transition = currentQuadrant === desiredQuadrant
+      ? `Vous souhaitez consolider votre position « ${getQuadrantName(currentQuadrant)} ».`
+      : `Vous souhaitez évoluer de « ${getQuadrantName(currentQuadrant)} » vers « ${getQuadrantName(desiredQuadrant)} ».`;
+    const result = {
+      diagnostic: `Sujet analysé : « ${subject.trim()} ». ${transition} Cette synthèse met en relation votre objectif et les actions que vous avez vous-même formulées.`,
+      vigilance: `Vérifiez que chacun des ${planElements.length} éléments de votre plan décrit un résultat observable, une échéance et, si nécessaire, une personne ressource. Une intention générale ne permet pas encore de mesurer les progrès.`,
+      reco: `Commencez par l'action suivante : « ${actionSteps.act.trim()} ». Associez-lui un premier jalon réalisable sous sept jours. Pour vérifier son effet, observez : « ${actionSteps.observe.trim()} ». Votre transformation visée reste : « ${actionSteps.transform.trim()} ».`
+    };
+    onAnalysis(result);
   };
 
   return (
@@ -179,19 +173,13 @@ const GuidedSynthesis = ({ subject, currentQuadrant, desiredQuadrant, actionStep
       </div>
       
       <div className="relative z-10">
-          {!analysis && !analyzing && (
+          {!analysis && (
             <Button onClick={generateAnalysis} disabled={!isPlanComplete} variant="outline" className="w-full bg-white/10 border-white/20 text-white hover:bg-white/20">
               Générer une synthèse de mon plan
             </Button>
           )}
           {!analysis && !isPlanComplete && (
             <p className="text-xs text-slate-400 mt-3">Renseignez les trois parties du plan pour générer une synthèse contextualisée.</p>
-          )}
-          {analyzing && (
-            <div className="text-slate-400 text-sm flex items-center gap-2 animate-pulse">
-              <div className="w-4 h-4 rounded-full border-2 border-blue-400 border-t-transparent animate-spin" />
-              Préparation de la synthèse en cours...
-            </div>
           )}
           {analysis && (
             <div className="space-y-4">
@@ -397,7 +385,7 @@ const Dashboard = ({ user, sessions, onLogout, onNewSession, onViewReport }) => 
                 <div className="flex justify-between items-start mb-4">
                   <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider">{new Date(session.date).toLocaleDateString()}</div>
                   <div className="flex items-center gap-1 text-emerald-600 bg-emerald-50 px-2 py-1 rounded text-xs font-bold">
-                    <FileText className="w-3 h-3" /> PDF Prêt
+                    <FileText className="w-3 h-3" /> Rapport prêt
                   </div>
                 </div>
                 <h3 className="text-lg font-bold text-slate-900 mb-2 line-clamp-2" title={session.subject}>{session.subject}</h3>
@@ -426,42 +414,37 @@ const Dashboard = ({ user, sessions, onLogout, onNewSession, onViewReport }) => 
 // --- PDF REPORT VIEW ---
 
 const ReportView = ({ session, onBack, autoPrint }) => {
-  const [showPrintWarning, setShowPrintWarning] = useState(false);
+  const [printError, setPrintError] = useState(false);
+  const printPending = useRef(false);
 
-  const handlePrint = useCallback(() => {
-    window.focus();
+  const handlePrint = useCallback(async () => {
+    if (printPending.current) return;
+    printPending.current = true;
+    setPrintError(false);
     try {
+      // Wait for font metrics before the browser paginates the report.
+      await document.fonts.ready;
+      window.focus();
       window.print();
-      setShowPrintWarning(true);
-      setTimeout(() => setShowPrintWarning(false), 8000);
     } catch (error) {
       console.error("Impression bloquée :", error);
+      setPrintError(true);
+    } finally {
+      printPending.current = false;
     }
   }, []);
 
   useEffect(() => {
-    // Styling intensif pour l'impression A4
-    const style = document.createElement("style");
-    style.innerHTML = `
-      @media print {
-        @page { size: A4 portrait; margin: 15mm; }
-        html, body { background: white !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-        .no-print { display: none !important; }
-        .print\\:shadow-none { box-shadow: none !important; border: none !important; }
-        .print\\:my-0 { margin-top: 0 !important; margin-bottom: 0 !important; }
-        .print\\:p-0 { padding: 0 !important; }
-        .print\\:text-sm { font-size: 0.875rem !important; }
-        .page-break { page-break-before: always; break-before: page; margin-top: 2rem; }
-        .avoid-break { page-break-inside: avoid; break-inside: avoid; }
-      }
-    `;
-    document.head.appendChild(style);
+    const previousTitle = document.title;
+    document.title = `EMIS-Horizons-Rapport-${session.id}`;
+    return () => { document.title = previousTitle; };
+  }, [session.id]);
 
-    if (autoPrint) {
-      setTimeout(() => handlePrint(), 500);
-    }
-
-    return () => document.head.removeChild(style);
+  useEffect(() => {
+    if (!autoPrint) return;
+    // Cleanup prevents duplicate dialogs in React StrictMode and printing after leaving.
+    const timer = setTimeout(() => { void handlePrint(); }, 150);
+    return () => clearTimeout(timer);
   }, [autoPrint, handlePrint]);
 
   if (!session) return null;
@@ -483,46 +466,46 @@ const ReportView = ({ session, onBack, autoPrint }) => {
   const preparationLabel = scores.total >= 75 ? "Élevé" : scores.total >= 45 ? "Intermédiaire" : "À consolider";
 
   return (
-    <div className="min-h-screen bg-slate-100 flex flex-col items-center py-8 print:py-0 print:bg-white overflow-x-hidden">
-      <header className="fixed top-0 w-full bg-white/90 backdrop-blur border-b border-slate-200 z-50 p-4 flex justify-between items-center no-print shadow-sm">
-        <Button variant="ghost" onClick={onBack} className="text-slate-600">
-          <ArrowLeft className="w-4 h-4 mr-2" /> Quitter le rapport
-        </Button>
-        <div className="flex gap-3">
-          {showPrintWarning && (
-             <div className="flex items-center text-sm text-amber-700 font-medium px-4 py-2 bg-amber-50 border border-amber-200 rounded-lg shadow-sm">
-               Impression lancée. Si rien ne se passe, appuyez sur <strong className="mx-1">Ctrl + P</strong> (ou <strong className="mx-1">Cmd + P</strong> sur Mac).
-             </div>
-          )}
-          <Button variant="primary" onClick={handlePrint} className="gap-2">
-            <Printer className="w-4 h-4" /> Télécharger / Imprimer PDF
+    <div className="report-view min-h-screen bg-slate-100 text-slate-900">
+      <header className="report-toolbar sticky top-0 w-full bg-white border-b border-slate-200 z-50 p-4 no-print shadow-sm">
+        <div className="flex flex-wrap justify-between items-center gap-3">
+          <Button variant="ghost" onClick={onBack} className="text-slate-600">
+            <ArrowLeft className="w-4 h-4 mr-2" /> Quitter le rapport
+          </Button>
+          <Button variant="primary" onClick={handlePrint}>
+            <Printer className="w-4 h-4" /> Imprimer / Enregistrer en PDF
           </Button>
         </div>
+        <p className="text-sm text-slate-600 mt-2 text-center">
+          Dans la fenêtre d’impression, choisissez « Enregistrer au format PDF » pour télécharger le rapport.
+          Format conseillé : A4, portrait, échelle 100 %, en-têtes et pieds de page du navigateur désactivés.
+        </p>
+        {printError && <p role="alert" className="text-sm text-red-700 mt-2 text-center">
+          La fenêtre d’impression n’a pas pu s’ouvrir. Utilisez Ctrl + P (ou Cmd + P sur Mac).
+        </p>}
       </header>
 
-      {/* DOCUMENT A4 */}
-      <div className="w-[210mm] min-h-[297mm] bg-white mt-16 p-[15mm] shadow-2xl print:shadow-none print:mt-0 print:p-0 text-slate-900 font-sans">
-        
+      <article className="report-document bg-white shadow-2xl text-slate-900 font-sans" aria-label="Rapport individuel">
         {/* En-tête */}
-        <div className="border-b-2 border-slate-900 pb-6 mb-8 flex justify-between items-end">
+        <div className="report-heading border-b-2 border-slate-900 pb-6 mb-8 flex justify-between items-end gap-4">
           <div>
             <h1 className="text-4xl font-extrabold tracking-tight text-slate-900 mb-1">Mon État d'esprit du Futur</h1>
             <p className="text-lg font-medium text-slate-500">EMIS Consulting - Rapport individuel</p>
           </div>
-          <div className="text-right text-sm font-bold text-slate-400">
+          <div className="report-meta text-right text-sm font-bold text-slate-500">
             {new Date(session.date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}<br/>
             ID: {session.id}
           </div>
         </div>
 
         {/* 1. Sujet */}
-        <div className="mb-8 avoid-break">
+        <div className="mb-8 report-subject">
           <h2 className="text-xl font-bold text-blue-700 mb-3 uppercase tracking-wider flex items-center gap-2 border-l-4 border-blue-600 pl-3">1. Sujet d'avenir exploré</h2>
-          <p className="text-lg font-medium bg-slate-50 p-4 rounded-xl text-slate-800">{session.subject}</p>
+          <p className="report-response text-lg font-medium bg-slate-50 p-4 rounded-xl text-slate-800">{session.subject}</p>
         </div>
 
         {/* Axes */}
-        <div className="grid grid-cols-2 gap-8 mb-8 avoid-break">
+        <div className="report-columns grid grid-cols-1 sm:grid-cols-2 gap-8 mb-8 avoid-break">
           <div>
             <h2 className="text-xl font-bold text-blue-700 mb-4 uppercase tracking-wider flex items-center gap-2 border-l-4 border-blue-600 pl-3">2. Vision du futur</h2>
             <div className="flex justify-between text-xs font-bold text-slate-400 mb-2 uppercase">
@@ -533,7 +516,7 @@ const ReportView = ({ session, onBack, autoPrint }) => {
               <div className="h-full bg-emerald-500 rounded-full" style={{ width: `${Math.max(0, (session.futureAxis + 100) / 2)}%` }}></div>
             </div>
             <div className="text-center mt-2 font-bold text-sm text-slate-700">
-              Score: {session.futureAxis > 0 ? `Désirable (+${session.futureAxis}%)` : `Contraint (${session.futureAxis}%)`}
+              Score: {session.futureAxis > 0 ? `Désirable (+${session.futureAxis}%)` : session.futureAxis < 0 ? `Contraint (${session.futureAxis}%)` : "Neutre"}
             </div>
           </div>
           <div>
@@ -554,7 +537,7 @@ const ReportView = ({ session, onBack, autoPrint }) => {
         {/* 4. Score de résilience */}
         <div className="mb-10 bg-slate-50 rounded-2xl p-6 border border-slate-200 avoid-break">
           <h2 className="text-xl font-bold text-blue-700 mb-4 uppercase tracking-wider flex items-center gap-2 border-l-4 border-blue-600 pl-3">4. Indice exploratoire de préparation</h2>
-          <div className="flex items-center gap-8">
+          <div className="report-score flex items-center gap-8">
             <div className="w-24 h-24 rounded-full border-8 border-emerald-500 flex flex-col items-center justify-center shrink-0 bg-white shadow-sm">
               <span className="text-3xl font-black text-slate-900 leading-none">{scores.total}</span>
               <span className="text-xs font-bold text-slate-400">/ 100</span>
@@ -573,7 +556,7 @@ const ReportView = ({ session, onBack, autoPrint }) => {
         </div>
 
         {/* 5. Matrice & Pistes */}
-        <div className="grid grid-cols-2 gap-8 mb-8 avoid-break">
+        <div className="report-columns grid grid-cols-1 sm:grid-cols-2 gap-8 mb-8 avoid-break">
           <div>
             <h2 className="text-xl font-bold text-blue-700 mb-4 uppercase tracking-wider flex items-center gap-2 border-l-4 border-blue-600 pl-3">5. Ma position sur la matrice</h2>
             <FutureMatrix x={session.futureAxis/100} y={session.powerAxis/100} size="print" />
@@ -594,10 +577,8 @@ const ReportView = ({ session, onBack, autoPrint }) => {
           </div>
         </div>
 
-        <div className="page-break" />
-
         {/* 6. Projection */}
-        <div className="mb-10 avoid-break">
+        <div className="report-projection mb-10 avoid-break">
           <h2 className="text-xl font-bold text-blue-700 mb-4 uppercase tracking-wider flex items-center gap-2 border-l-4 border-blue-600 pl-3">6. Ma projection souhaitée</h2>
           <div className="text-lg">
             Je souhaite évoluer vers / maintenir : <strong className="text-blue-600">{getQuadrantName(session.desiredQuadrant)}</strong>
@@ -605,52 +586,52 @@ const ReportView = ({ session, onBack, autoPrint }) => {
         </div>
 
         {/* 7. Plan d'action */}
-        <div className="mb-10 avoid-break">
+        <div className="report-actions mb-10">
           <h2 className="text-xl font-bold text-blue-700 mb-6 uppercase tracking-wider flex items-center gap-2 border-l-4 border-blue-600 pl-3">7. Mon plan d'action</h2>
-          <div className="grid grid-cols-3 gap-6">
-            <div className="border border-slate-300 p-5 rounded-xl bg-white shadow-sm">
+          <div className="report-action-list grid grid-cols-1 sm:grid-cols-3 gap-6">
+            <div className="report-action-card border border-slate-300 p-5 rounded-xl bg-white shadow-sm">
               <div className="text-sm font-black text-blue-600 uppercase tracking-widest mb-3 flex items-center gap-2">1. Observer</div>
-              <p className="text-sm text-slate-800 leading-relaxed">{session.actionSteps?.observe || "—"}</p>
+              <p className="report-response text-sm text-slate-800 leading-relaxed">{session.actionSteps?.observe || "—"}</p>
             </div>
-            <div className="border border-slate-300 p-5 rounded-xl bg-white shadow-sm">
+            <div className="report-action-card border border-slate-300 p-5 rounded-xl bg-white shadow-sm">
               <div className="text-sm font-black text-amber-600 uppercase tracking-widest mb-3 flex items-center gap-2">2. Agir</div>
-              <p className="text-sm text-slate-800 leading-relaxed">{session.actionSteps?.act || "—"}</p>
+              <p className="report-response text-sm text-slate-800 leading-relaxed">{session.actionSteps?.act || "—"}</p>
             </div>
-            <div className="border border-slate-300 p-5 rounded-xl bg-white shadow-sm">
+            <div className="report-action-card border border-slate-300 p-5 rounded-xl bg-white shadow-sm">
               <div className="text-sm font-black text-emerald-600 uppercase tracking-widest mb-3 flex items-center gap-2">3. Transformer</div>
-              <p className="text-sm text-slate-800 leading-relaxed">{session.actionSteps?.transform || "—"}</p>
+              <p className="report-response text-sm text-slate-800 leading-relaxed">{session.actionSteps?.transform || "—"}</p>
             </div>
           </div>
         </div>
 
         {/* 8. Synthèse guidée */}
         {session.aiAnalysis && (
-          <div className="avoid-break">
+          <div className="report-synthesis">
             <h2 className="text-xl font-bold text-blue-700 mb-6 uppercase tracking-wider flex items-center gap-2 border-l-4 border-blue-600 pl-3">8. Synthèse guidée</h2>
             <div className="bg-slate-50 border border-slate-200 p-6 rounded-2xl space-y-6">
               <div>
                 <h4 className="text-slate-900 font-bold text-sm mb-2 uppercase tracking-wider flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-blue-500"/> Diagnostic express</h4>
-                <p className="text-slate-700 text-sm leading-relaxed">{session.aiAnalysis.diagnostic}</p>
+                <p className="report-response text-slate-700 text-sm leading-relaxed">{session.aiAnalysis.diagnostic}</p>
               </div>
               <div className="h-px w-full bg-slate-200" />
               <div>
                 <h4 className="text-slate-900 font-bold text-sm mb-2 uppercase tracking-wider flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-amber-500"/> Points de vigilance</h4>
-                <p className="text-slate-700 text-sm leading-relaxed whitespace-pre-wrap">{session.aiAnalysis.vigilance}</p>
+                <p className="report-response text-slate-700 text-sm leading-relaxed whitespace-pre-wrap">{session.aiAnalysis.vigilance}</p>
               </div>
               <div className="h-px w-full bg-slate-200" />
               <div className="bg-white p-5 rounded-xl border border-emerald-100 shadow-sm">
                 <h4 className="text-emerald-700 font-bold text-sm mb-2 uppercase tracking-wider flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-emerald-500"/> Prochaine étape recommandée</h4>
-                <p className="text-slate-800 text-sm leading-relaxed whitespace-pre-wrap font-medium">{session.aiAnalysis.reco}</p>
+                <p className="report-response text-slate-800 text-sm leading-relaxed whitespace-pre-wrap font-medium">{session.aiAnalysis.reco}</p>
               </div>
             </div>
           </div>
         )}
 
-        <div className="mt-12 pt-6 border-t border-slate-200 text-center text-xs text-slate-400 font-medium">
+        <div className="report-footer mt-12 pt-6 border-t border-slate-200 text-center text-xs text-slate-400 font-medium">
           EMIS Horizons - Observatoire Scientifique des Transitions • Document généré le {new Date(session.date).toLocaleDateString('fr-FR')}
         </div>
 
-      </div>
+      </article>
     </div>
   );
 };
@@ -674,6 +655,9 @@ const AssessmentTool = ({ onSave, onCancel }) => {
   const [desiredQuadrant, setDesiredQuadrant] = useState(null);
   const [actionSteps, setActionSteps] = useState({ observe: "", act: "", transform: "" });
   const [aiAnalysis, setAiAnalysis] = useState(null);
+
+  const synthesisSource = JSON.stringify({ subject, futureAxis, powerAxis, clarity, ambition, desiredQuadrant, actionSteps });
+  const currentAnalysis = aiAnalysis?.source === synthesisSource ? aiAnalysis.result : null;
 
   const x = futureAxis / 100;
   const y = powerAxis / 100;
@@ -710,6 +694,7 @@ const AssessmentTool = ({ onSave, onCancel }) => {
   const prev = () => step > 0 && setStep(step - 1);
 
   const handleSave = () => {
+    if (!currentAnalysis) return;
     onSave({
       id: "EMIS-" + Math.random().toString(36).substr(2, 6).toUpperCase(),
       date: new Date().toISOString(),
@@ -720,7 +705,7 @@ const AssessmentTool = ({ onSave, onCancel }) => {
       currentQuadrant: getQuadrant(),
       desiredQuadrant,
       actionSteps,
-      aiAnalysis
+      aiAnalysis: currentAnalysis
     });
   };
 
@@ -838,7 +823,8 @@ const AssessmentTool = ({ onSave, onCancel }) => {
                 currentQuadrant={getQuadrant()} 
                 desiredQuadrant={desiredQuadrant} 
                 actionSteps={actionSteps} 
-                onAnalysis={setAiAnalysis}
+                analysis={currentAnalysis}
+                onAnalysis={(result) => setAiAnalysis({ source: synthesisSource, result })}
               />
             </div>
           </QuestionnaireStep>
@@ -858,8 +844,8 @@ const AssessmentTool = ({ onSave, onCancel }) => {
               {!canProceed() && <p className="text-xs text-slate-500 mt-2">Répondez à cette étape pour continuer.</p>}
             </div>
           ) : (
-            <Button variant="primary" onClick={handleSave} disabled={!aiAnalysis} className="bg-emerald-600 hover:bg-emerald-700 shadow-emerald-500/30">
-              <Save className="w-4 h-4 mr-2" /> Terminer & Générer le PDF
+            <Button variant="primary" onClick={handleSave} disabled={!currentAnalysis} className="bg-emerald-600 hover:bg-emerald-700 shadow-emerald-500/30">
+              <Save className="w-4 h-4 mr-2" /> Terminer et ouvrir le rapport
             </Button>
           )}
         </div>
