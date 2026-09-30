@@ -8,7 +8,7 @@ const ownerB = '22222222-2222-4222-8222-222222222222';
 const reportId = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
 const root = new URL('../../supabase/migrations/', import.meta.url);
 const sql = name => readFile(new URL(name, root), 'utf8');
-const migrationName = '20260930000000_private_assessment_reports.sql';
+const migrationName = '20260930164234_private_assessment_reports.sql';
 
 test('PostgreSQL : migration réexécutable, données conservées et accès isolés', async () => {
   const db = new PGlite();

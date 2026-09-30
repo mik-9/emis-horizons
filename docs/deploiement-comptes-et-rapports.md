@@ -10,7 +10,7 @@ Faire une sauvegarde ou un export de la table `public.evaluations` existante.
 Dans le SQL Editor du **projet Supabase utilisé par EMIS Horizons**, exécuter le
 contenu complet de :
 
-`supabase/migrations/20260930000000_private_assessment_reports.sql`
+`supabase/migrations/20260930164234_private_assessment_reports.sql`
 
 La migration est transactionnelle et réexécutable. Elle :
 
@@ -36,11 +36,32 @@ Le fichier `20260721000000_legacy_evaluations_baseline.sql` crée uniquement une
 table historique absente, afin de rendre la chaîne des anciennes migrations
 rejouable sur une base neuve. Il ne modifie pas une table déjà existante.
 
-Pour une base gérée avec la CLI Supabase, examiner d'abord `supabase migration list`
-et le résultat de `supabase db push --dry-run --include-all`. Le paramètre
-`--include-all` est nécessaire lorsque la migration de base ajoutée porte une date
-antérieure à des migrations déjà appliquées. Exécuter ensuite la mise à jour
-uniquement après avoir vérifié le projet cible et la sauvegarde.
+Pour une base gérée avec la CLI Supabase, examiner d'abord l'historique distant
+et le résultat d'une simulation avant toute application. Sur le projet EMIS
+existant, les anciennes migrations de base et de restriction ne sont pas toutes
+inscrites dans l'historique, bien que leur état ait été vérifié avant la migration
+privée. Réconcilier cet historique avant un prochain `db push`.
+**Ne pas rejouer les anciennes politiques publiques avec `--include-all` sur une
+base déjà migrée** : cela pourrait rétablir les insertions anonymes alors que la
+migration privée serait ignorée car déjà enregistrée.
+
+### État vérifié le 30 septembre 2026
+
+- Projet cible confirmé par l'URL Supabase intégrée au site Vercel.
+- Export des sept évaluations historiques et de leurs droits effectué avant migration.
+- Migration privée appliquée, version distante `20260930164234`, identique au fichier du dépôt.
+- Sept anciennes évaluations conservées ; table privée prête, sans rapport réel.
+- Tests transactionnels sur la base hébergée : lecture et écriture du propriétaire,
+  score calculé, refus de réattribution et de modification de date, isolation d'un
+  second compte et refus de lecture anonyme. Toutes les données de test annulées.
+- Diagnostic Supabase : aucune alerte de sécurité WARN/ERROR ; information attendue
+  sur `evaluations`, dont les accès clients sont volontairement fermés.
+- Auth public : Email/Password et inscriptions activés ; confirmation email requise.
+- À vérifier avant fusion : URL du site et retours, longueur minimale côté serveur,
+  configuration SMTP et réception réelle des messages. Ces réglages ne sont pas
+  accessibles via les actions du plugin disponibles dans cette session.
+- La version publique actuelle fonctionne encore comme une démo : ses anciennes
+  écritures anonymes sont désormais refusées. La nouvelle version reste en PR.
 
 ## 2. Activer et configurer l'authentification
 
