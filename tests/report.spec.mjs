@@ -6,10 +6,7 @@ async function reachPlan(page, long = false) {
     window.print = () => { window.__printCalls += 1; };
   });
   await page.goto('/');
-  await page.getByRole('button', { name: 'Connexion', exact: true }).click();
-  await page.locator('input[type=email]').fill('test@example.com');
-  await page.locator('input[type=password]').fill('test-password');
-  await page.getByRole('button', { name: 'Se connecter', exact: true }).click();
+  await page.getByRole('button', { name: 'Essayer la démo', exact: true }).click();
   await page.getByRole('button', { name: 'Commencer maintenant' }).click();
   await page.locator('textarea').fill('Développer mon offre commerciale en ligne');
   const next = () => page.getByRole('button', { name: 'Continuer', exact: true }).click();
@@ -49,7 +46,7 @@ test('rapport A4 sans débordement, commandes masquées et impression unique', a
   await reachPlan(page);
   await openReport(page);
   await expect(page.getByText('Score: Neutre', { exact: true })).toBeVisible();
-  await expect(page).toHaveTitle(/^EMIS-Horizons-Rapport-EMIS-/);
+  await expect(page).toHaveTitle(/^EMIS-Horizons-Rapport-/);
   await page.getByRole('button', { name: 'Imprimer / Enregistrer en PDF' }).click();
   await expect.poll(() => page.evaluate(() => window.__printCalls)).toBe(1);
   await page.emulateMedia({ media: 'print' });

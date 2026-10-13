@@ -1,8 +1,12 @@
-import { isSupabaseConfigured, supabase } from './supabaseClient';
+import { supabase } from './supabaseClient';
+import AuthPage from './components/AuthPage';
+import { useAuth } from './hooks/useAuth';
+import { listReports, saveReport, SUBJECT_LIMIT, ACTION_LIMIT } from './lib/reports';
+import { authErrorMessage, reportErrorMessage } from './lib/errors';
 import { useState, useEffect, useCallback, useRef } from "react";
 import "./report.css";
 import { 
-  ArrowRight, ArrowLeft, Compass, Printer, Save,
+  ArrowRight, ArrowLeft, Printer, Save,
   LogOut, Search, Target, Rocket, LayoutDashboard, Database,
   ShieldCheck, FileText, Plus, BrainCircuit
 } from "lucide-react";
@@ -16,6 +20,7 @@ const Button = ({ children, onClick, disabled, variant = "default", size = "defa
     primary: "bg-blue-600 text-white hover:bg-blue-700 shadow-lg shadow-blue-500/30 print:hidden",
     outline: "border border-slate-200 bg-white hover:bg-slate-50 text-slate-900 print:hidden",
     ghost: "bg-transparent hover:bg-slate-100 text-slate-700 print:hidden",
+    sidebar: "bg-transparent text-slate-200 hover:bg-slate-800 hover:text-white print:hidden",
   };
   const sizes = {
     default: "h-10 px-4 py-2",
@@ -30,21 +35,13 @@ const Button = ({ children, onClick, disabled, variant = "default", size = "defa
   );
 };
 
-const Textarea = ({ value, onChange, placeholder, className = "" }) => (
+const Textarea = ({ value, onChange, placeholder, className = "", maxLength = ACTION_LIMIT }) => (
   <textarea
     value={value}
+    maxLength={maxLength}
     onChange={onChange}
     placeholder={placeholder}
     className={`flex w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all print:border-none print:resize-none print:p-0 print:bg-transparent ${className}`}
-  />
-);
-
-const Input = ({ type = "text", placeholder, className = "", required }) => (
-  <input
-    type={type}
-    placeholder={placeholder}
-    required={required}
-    className={`flex h-11 w-full rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all ${className}`}
   />
 );
 
@@ -207,7 +204,7 @@ const GuidedSynthesis = ({ subject, currentQuadrant, desiredQuadrant, actionStep
 
 // --- SAAS VIEWS ---
 
-const LandingPage = ({ onNavigate }) => (
+const LandingPage = ({ onNavigate, onDemo }) => (
   <div className="min-h-screen bg-slate-50">
     <nav className="border-b border-slate-200 bg-white/80 backdrop-blur-md fixed top-0 w-full z-50">
       <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
@@ -235,8 +232,9 @@ const LandingPage = ({ onNavigate }) => (
         </p>
         <div className="flex flex-col sm:flex-row gap-4 justify-center">
           <Button variant="primary" size="lg" onClick={() => onNavigate('auth')} className="gap-2">
-            Obtenir mon rapport stratégique <ArrowRight className="w-5 h-5" />
+            Commencer mon exploration <ArrowRight className="w-5 h-5" />
           </Button>
+          <Button variant="outline" size="lg" onClick={onDemo}>Essayer la démo</Button>
         </div>
       </div>
 
@@ -244,7 +242,7 @@ const LandingPage = ({ onNavigate }) => (
         {[
           { icon: <Target className="w-6 h-6 text-emerald-600" />, title: "Matrice prospective", desc: "Croisez votre vision du futur et votre marge de manœuvre pour situer votre posture actuelle." },
           { icon: <FileText className="w-6 h-6 text-blue-600" />, title: "Rapport de réflexion", desc: "Retrouvez vos réponses, votre indice exploratoire et les prochaines étapes que vous avez formulées." },
-          { icon: <Database className="w-6 h-6 text-purple-600" />, title: "Base Scientifique", desc: "En utilisant EMIS Horizons, vous enrichissez une base de données anonymisée pour faire avancer la recherche sur le changement." }
+          { icon: <Database className="w-6 h-6 text-purple-600" />, title: "Espace personnel", desc: "Avec un compte, conservez vos rapports et retrouvez vos plans d’action lors de votre prochaine connexion." }
         ].map((feature, i) => (
           <div key={i} className="bg-white p-8 rounded-2xl border border-slate-200 shadow-sm hover:shadow-md transition-shadow">
             <div className="w-12 h-12 bg-slate-50 rounded-xl flex items-center justify-center mb-6">{feature.icon}</div>
@@ -257,76 +255,11 @@ const LandingPage = ({ onNavigate }) => (
   </div>
 );
 
-const AuthPage = ({ onLogin, onBack }) => {
-  const [isLogin, setIsLogin] = useState(true);
-  const [consent, setConsent] = useState(false);
-
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    if (!isLogin && !consent) return alert("Veuillez accepter de partager vos données anonymisées pour la recherche.");
-    onLogin({ name: "Utilisateur Démo", email: "demo@emis.com", plan: "pro" });
-  };
-
+const Dashboard = ({ user, sessions, onLogout, onNewSession, onViewReport, history, onRetry, onLoadMore, logoutBusy, logoutError, demo }) => {
+  const [showPrivacy, setShowPrivacy] = useState(false);
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col justify-center items-center px-6">
-      <Button variant="ghost" onClick={onBack} className="absolute top-6 left-6 text-slate-500">
-        <ArrowLeft className="w-4 h-4" /> Retour
-      </Button>
-      <div className="w-full max-w-md bg-white p-8 rounded-3xl border border-slate-200 shadow-xl animate-in fade-in slide-in-from-bottom-4">
-        <div className="w-12 h-12 bg-blue-50 rounded-xl flex items-center justify-center mb-6 mx-auto">
-          <Compass className="w-6 h-6 text-blue-600" />
-        </div>
-        <h2 className="text-2xl font-bold text-center text-slate-900 mb-2">
-          {isLogin ? "Bon retour !" : "Créer un compte"}
-        </h2>
-        <p className="text-center text-slate-500 mb-8">
-          {isLogin ? "Connectez-vous à EMIS Horizons" : "Rejoignez l'observatoire prospectif"}
-        </p>
-
-        <form onSubmit={handleSubmit} className="space-y-4">
-          {!isLogin && (
-            <div className="space-y-1">
-              <label className="text-sm font-medium text-slate-700">Nom complet</label>
-              <Input placeholder="Jean Dupont" required={!isLogin} />
-            </div>
-          )}
-          <div className="space-y-1">
-            <label className="text-sm font-medium text-slate-700">Email</label>
-            <Input type="email" placeholder="jean@entreprise.com" required />
-          </div>
-          <div className="space-y-1">
-            <label className="text-sm font-medium text-slate-700">Mot de passe</label>
-            <Input type="password" placeholder="••••••••" required />
-          </div>
-
-          {!isLogin && (
-            <div className="flex items-start gap-3 mt-4 p-4 bg-slate-50 rounded-xl border border-slate-200">
-              <input type="checkbox" id="consent" checked={consent} onChange={(e) => setConsent(e.target.checked)} className="mt-1 w-4 h-4 text-blue-600 rounded border-slate-300 focus:ring-blue-500" />
-              <label htmlFor="consent" className="text-xs text-slate-600 leading-relaxed cursor-pointer">
-                <strong>Consentement scientifique :</strong> J'accepte que les résultats de mes évaluations (scores et quadrants) soient anonymisés et agrégés dans la base de données EMIS Consulting à des fins de recherche sur la psychologie du changement.
-              </label>
-            </div>
-          )}
-
-          <Button variant="primary" type="submit" className="w-full mt-4">
-            {isLogin ? "Se connecter" : "S'inscrire et commencer"}
-          </Button>
-        </form>
-
-        <div className="mt-6 text-center">
-          <button onClick={() => setIsLogin(!isLogin)} className="text-sm text-blue-600 font-medium hover:underline">
-            {isLogin ? "Pas encore de compte ? S'inscrire" : "Déjà un compte ? Se connecter"}
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-};
-
-const Dashboard = ({ user, sessions, onLogout, onNewSession, onViewReport }) => {
-  return (
-    <div className="min-h-screen bg-slate-50 flex">
-      <aside className="w-64 bg-slate-900 text-white flex flex-col fixed h-full z-20">
+    <div className="min-h-screen bg-slate-50 md:flex">
+      <aside className="w-full md:w-64 bg-slate-900 text-white flex flex-col md:fixed md:h-full z-20">
         <div className="p-6 flex items-center gap-3 border-b border-slate-800">
           <Database className="w-6 h-6 text-blue-400" />
           <span className="font-bold tracking-tight">EMIS Horizons</span>
@@ -334,10 +267,10 @@ const Dashboard = ({ user, sessions, onLogout, onNewSession, onViewReport }) => 
         <div className="p-6">
           <div className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-4">Espace Personnel</div>
           <nav className="space-y-2">
-            <Button variant="ghost" className="w-full justify-start text-white bg-slate-800 hover:bg-slate-700">
+            <Button variant="sidebar" onClick={() => setShowPrivacy(false)} className="w-full justify-start">
               <LayoutDashboard className="w-4 h-4" /> Tableau de bord
             </Button>
-            <Button variant="ghost" className="w-full justify-start text-slate-400 hover:text-white hover:bg-slate-800">
+            <Button variant="sidebar" onClick={() => setShowPrivacy(value => !value)} className="w-full justify-start">
               <ShieldCheck className="w-4 h-4" /> Confidentialité & Données
             </Button>
           </nav>
@@ -349,34 +282,44 @@ const Dashboard = ({ user, sessions, onLogout, onNewSession, onViewReport }) => 
             </div>
             <div>
               <div className="text-sm font-bold">{user.name}</div>
-              <div className="text-[10px] text-blue-400 uppercase tracking-wider font-bold">{user.plan} Plan</div>
+              <div className="text-[10px] text-blue-400 uppercase tracking-wider font-bold">{demo ? "Démonstration" : "Compte personnel"}</div>
             </div>
           </div>
-          <Button variant="ghost" onClick={onLogout} className="w-full justify-start text-slate-400 hover:text-white hover:bg-slate-800">
-            <LogOut className="w-4 h-4" /> Déconnexion
+          <Button variant="sidebar" disabled={logoutBusy} onClick={onLogout} className="w-full justify-start">
+            <LogOut className="w-4 h-4" /> {logoutBusy ? "Déconnexion…" : demo ? "Quitter la démo" : "Déconnexion"}
           </Button>
         </div>
       </aside>
 
-      <main className="flex-1 ml-64 p-10 max-w-6xl">
-        <div className="flex justify-between items-end mb-10 animate-in fade-in">
+      <main className="flex-1 md:ml-64 p-5 md:p-10 max-w-6xl w-full min-w-0">
+        {logoutError && <p role="alert" className="bg-red-50 text-red-800 p-4 rounded-xl mb-4">{logoutError}</p>}
+        {showPrivacy && <section className="bg-white border rounded-xl p-4 mb-6" aria-label="Confidentialité et données">
+          <h2 className="font-bold mb-2">Vos données</h2>
+          <p>{demo ? "Les rapports de démonstration restent en mémoire dans cet onglet et disparaissent à sa fermeture." : "Vos rapports sont associés à votre compte. Les autres utilisateurs n’y ont pas accès. Vous pouvez conserver une copie de chaque rapport avec le bouton d’impression PDF."}</p>
+          <p className="mt-2 text-sm">Les réponses libres ne sont pas anonymisées. Évitez les noms et informations confidentielles concernant des tiers.</p>
+        </section>}
+        <div className="flex flex-wrap gap-4 justify-between items-end mb-10 animate-in fade-in">
           <div>
-            <h1 className="text-3xl font-bold text-slate-900 mb-2">Bonjour, {user.name.split(' ')[0]} 👋</h1>
-            <p className="text-slate-600">Retrouvez l'historique de vos rapports de résilience prospective.</p>
+            <h1 className="text-3xl font-bold text-slate-900 mb-2">Bonjour, {user.name.split(' ')[0]}</h1>
+            <p className="text-slate-600">Retrouvez l’historique de vos explorations et de vos plans d’action.</p>
           </div>
-          <Button variant="primary" onClick={onNewSession}>
+          <Button variant="primary" onClick={onNewSession} disabled={history.loading}>
             <Plus className="w-4 h-4" /> Nouvelle Exploration
           </Button>
         </div>
 
-        {sessions.length === 0 ? (
+        {history.loading && <p role="status" className="p-6">Chargement de vos rapports…</p>}
+        {history.error && <div role="alert" className="p-4 mb-5 rounded-xl bg-red-50 text-red-800">
+          <p>{history.error}</p><Button variant="outline" onClick={onRetry} disabled={history.loading}>Réessayer le chargement</Button>
+        </div>}
+        {!history.loading && !history.error && sessions.length === 0 ? (
           <div className="bg-white border-2 border-dashed border-slate-200 rounded-3xl p-12 text-center flex flex-col items-center justify-center animate-in fade-in">
             <div className="w-16 h-16 bg-slate-50 rounded-2xl flex items-center justify-center mb-4">
               <Search className="w-8 h-8 text-slate-300" />
             </div>
             <h3 className="text-xl font-bold text-slate-900 mb-2">Aucune exploration</h3>
             <p className="text-slate-500 mb-6 max-w-sm">Vous n'avez pas encore généré de rapport d'état d'esprit du futur.</p>
-            <Button variant="primary" onClick={onNewSession}>Commencer maintenant</Button>
+            <Button variant="primary" onClick={onNewSession} disabled={history.loading}>Commencer maintenant</Button>
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 animate-in fade-in">
@@ -406,6 +349,9 @@ const Dashboard = ({ user, sessions, onLogout, onNewSession, onViewReport }) => 
             ))}
           </div>
         )}
+        {history.hasMore && <Button variant="outline" onClick={onLoadMore} disabled={history.loadingMore} className="mt-6">
+          {history.loadingMore ? "Chargement…" : "Charger les rapports précédents"}
+        </Button>}
       </main>
     </div>
   );
@@ -628,7 +574,7 @@ const ReportView = ({ session, onBack, autoPrint }) => {
         )}
 
         <div className="report-footer mt-12 pt-6 border-t border-slate-200 text-center text-xs text-slate-400 font-medium">
-          EMIS Horizons - Observatoire Scientifique des Transitions • Document généré le {new Date(session.date).toLocaleDateString('fr-FR')}
+          EMIS Horizons - Exploration du changement • Document généré le {new Date(session.date).toLocaleDateString('fr-FR')}
         </div>
 
       </article>
@@ -638,7 +584,8 @@ const ReportView = ({ session, onBack, autoPrint }) => {
 
 // --- ASSESSMENT TOOL ---
 
-const AssessmentTool = ({ onSave, onCancel }) => {
+const AssessmentTool = ({ onSave, onCancel, saving, saveError }) => {
+  const submission = useRef(null);
   const TOTAL_STEPS = 7; // Ajout d'une étape pour les sous-scores
   const [step, setStep] = useState(0);
   const [subject, setSubject] = useState("");
@@ -682,7 +629,7 @@ const AssessmentTool = ({ onSave, onCancel }) => {
   };
 
   const canProceed = () => {
-    if (step === 0) return subject.trim().length >= 10;
+    if (step === 0) return subject.trim().length >= 10 && subject.length <= SUBJECT_LIMIT;
     if (step === 1) return answered.future;
     if (step === 2) return answered.power;
     if (step === 3) return answered.clarity && answered.transformation;
@@ -694,9 +641,12 @@ const AssessmentTool = ({ onSave, onCancel }) => {
   const prev = () => step > 0 && setStep(step - 1);
 
   const handleSave = () => {
-    if (!currentAnalysis) return;
+    if (!currentAnalysis || saving) return;
+    if (!submission.current) {
+      submission.current = { id: crypto.randomUUID() };
+    }
     onSave({
-      id: "EMIS-" + Math.random().toString(36).substr(2, 6).toUpperCase(),
+      id: submission.current.id,
       date: new Date().toISOString(),
       subject,
       futureAxis,
@@ -713,7 +663,7 @@ const AssessmentTool = ({ onSave, onCancel }) => {
     <div className="min-h-screen bg-slate-50 flex flex-col">
       <header className="border-b border-slate-200 bg-white sticky top-0 z-10">
         <div className="max-w-4xl mx-auto px-6 py-4 flex items-center justify-between">
-          <Button variant="ghost" onClick={onCancel} className="text-slate-500 p-0 hover:bg-transparent">
+          <Button variant="ghost" onClick={onCancel} disabled={saving} className="text-slate-500 p-0 hover:bg-transparent">
             <ArrowLeft className="w-4 h-4 mr-2" /> Retour au Dashboard
           </Button>
           <div className="text-xs font-bold text-slate-400 tracking-wider">
@@ -726,9 +676,10 @@ const AssessmentTool = ({ onSave, onCancel }) => {
       </header>
 
       <main className="flex-1 max-w-4xl w-full mx-auto p-6 py-12">
+        <fieldset disabled={saving} className="min-w-0">
         {step === 0 && (
           <QuestionnaireStep title="1. Quel sujet d'avenir vous préoccupe ?" description="Personnel, professionnel, sociétal… Identifiez la transformation qui compte le plus pour vous en ce moment.">
-            <Textarea value={subject} onChange={(e) => setSubject(e.target.value)} placeholder="Ex. : Réussir mon examen, faire évoluer mon activité ou mieux m'adapter à un changement..." className="min-h-[160px] text-base" />
+            <Textarea value={subject} maxLength={SUBJECT_LIMIT} onChange={(e) => setSubject(e.target.value)} placeholder="Ex. : Réussir mon examen, faire évoluer mon activité ou mieux m'adapter à un changement..." className="min-h-[160px] text-base" />
           </QuestionnaireStep>
         )}
         
@@ -785,7 +736,7 @@ const AssessmentTool = ({ onSave, onCancel }) => {
         )}
 
         {step === 4 && (
-          <QuestionnaireStep title="5. Votre position actuelle" description="Voici où vous vous situez sur la matrice prospective de l'observatoire.">
+          <QuestionnaireStep title="5. Votre position actuelle" description="Voici où vous vous situez sur la matrice de votre exploration.">
             <FutureMatrix x={x} y={y} />
             <div className="mt-8 text-center bg-white p-6 rounded-xl border border-slate-200">
               <h3 className="font-bold text-lg text-slate-900 mb-2">Vous êtes : {["Acteur du changement", "Résistant engagé", "Spectateur inquiet", "Observateur confiant"][getQuadrant()-1]}</h3>
@@ -829,23 +780,27 @@ const AssessmentTool = ({ onSave, onCancel }) => {
             </div>
           </QuestionnaireStep>
         )}
+        </fieldset>
       </main>
 
       <footer className="border-t border-slate-200 bg-white p-4 sticky bottom-0 z-10">
+        {saveError && <div role="alert" className="max-w-4xl mx-auto mb-4 text-red-800 bg-red-50 rounded-xl p-3">
+          <p>{saveError}</p><p>Vos réponses restent disponibles sur cette page. Ne la fermez pas ; réessayez avec le bouton ci-dessous.</p>
+        </div>}
         <div className="max-w-4xl mx-auto flex justify-between items-center">
-          <Button variant="ghost" onClick={prev} disabled={step === 0} className="text-slate-500">
+          <Button variant="ghost" onClick={prev} disabled={step === 0 || saving} className="text-slate-500">
             <ArrowLeft className="w-4 h-4 mr-2" /> Précédent
           </Button>
           {step < TOTAL_STEPS - 1 ? (
             <div className="text-right">
-              <Button variant="primary" onClick={next} disabled={!canProceed()}>
+              <Button variant="primary" onClick={next} disabled={saving || !canProceed()}>
                 Continuer <ArrowRight className="w-4 h-4 ml-2" />
               </Button>
               {!canProceed() && <p className="text-xs text-slate-500 mt-2">Répondez à cette étape pour continuer.</p>}
             </div>
           ) : (
-            <Button variant="primary" onClick={handleSave} disabled={!currentAnalysis} className="bg-emerald-600 hover:bg-emerald-700 shadow-emerald-500/30">
-              <Save className="w-4 h-4 mr-2" /> Terminer et ouvrir le rapport
+            <Button variant="primary" onClick={handleSave} disabled={saving || !currentAnalysis} className="bg-emerald-600 hover:bg-emerald-700 shadow-emerald-500/30">
+              <Save className="w-4 h-4 mr-2" /> {saving ? "Enregistrement…" : "Terminer et ouvrir le rapport"}
             </Button>
           )}
         </div>
@@ -854,70 +809,134 @@ const AssessmentTool = ({ onSave, onCancel }) => {
   );
 };
 
-// --- MAIN ROUTER COMPONENT ---
-
-export default function App() {
-  const [currentView, setCurrentView] = useState("landing"); // landing, auth, dashboard, tool, report
-  const [user, setUser] = useState(null);
+// A keyed workspace owns private state. Changing accounts unmounts it completely.
+const UserWorkspace = ({ user, demo = false, onExit }) => {
+  const [view, setView] = useState('dashboard');
+  const [sessions, setSessions] = useState([]);
   const [selectedSession, setSelectedSession] = useState(null);
   const [autoPrint, setAutoPrint] = useState(false);
-  
-  // Storage en mémoire
-  const [sessions, setSessions] = useState([]);
+  const [history, setHistory] = useState({ loading: !demo, loadingMore: false, error: '', hasMore: false, offset: 0 });
+  const [reload, setReload] = useState(0);
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState('');
+  const [logoutBusy, setLogoutBusy] = useState(false);
+  const [logoutError, setLogoutError] = useState('');
+  const savePending = useRef(false);
+  const historyPending = useRef(false);
+  const active = useRef(true);
 
-  const handleLogin = (userData) => {
-    setUser(userData);
-    setCurrentView("dashboard");
-  };
+  useEffect(() => {
+    active.current = true;
+    return () => { active.current = false; };
+  }, []);
 
-  const handleLogout = () => {
-    setUser(null);
-    setCurrentView("landing");
-  };
+  useEffect(() => {
+    if (demo) return;
+    const controller = new AbortController();
+    listReports(user.id, 0, AbortSignal.any([controller.signal, AbortSignal.timeout(20000)]))
+      .then(result => {
+        if (controller.signal.aborted) return;
+        setSessions(result.reports);
+        setHistory({ loading: false, loadingMore: false, error: '', hasMore: result.hasMore, offset: result.reports.length });
+      })
+      .catch(() => {
+        if (controller.signal.aborted) return;
+        setHistory(previous => ({ ...previous, loading: false, error: 'Vos rapports n’ont pas pu être chargés. Réessayez ; un échec de chargement ne signifie pas qu’ils ont été supprimés.' }));
+      });
+    return () => controller.abort();
+  }, [user.id, demo, reload]);
 
-  const saveSession = async (newSession) => {
-  // 1. Mise à jour de l'interface locale (immédiate)
-  setSessions(prev => [newSession, ...prev]);
-  handleViewReport(newSession, false); 
+  useEffect(() => {
+    if (view !== 'tool') return;
+    const warn = event => { event.preventDefault(); event.returnValue = ''; };
+    window.addEventListener('beforeunload', warn);
+    return () => window.removeEventListener('beforeunload', warn);
+  }, [view]);
 
-  // 2. Envoi silencieux à la base de données Supabase
-  try {
-    if (!isSupabaseConfigured) {
-      console.warn("Supabase n'est pas configuré. L'évaluation reste disponible localement.");
-      return;
+  const loadMore = async () => {
+    if (historyPending.current) return;
+    historyPending.current = true;
+    setHistory(previous => ({ ...previous, loadingMore: true, error: '' }));
+    try {
+      const result = await listReports(user.id, history.offset);
+      if (!active.current) return;
+      setSessions(previous => [...new Map([...previous, ...result.reports].map(report => [report.id, report])).values()]);
+      setHistory(previous => ({ ...previous, hasMore: result.hasMore, offset: previous.offset + result.reports.length }));
+    } catch {
+      if (active.current) setHistory(previous => ({ ...previous, error: 'Les rapports précédents n’ont pas pu être chargés. Réessayez.' }));
+    } finally {
+      historyPending.current = false;
+      if (active.current) setHistory(previous => ({ ...previous, loadingMore: false }));
     }
+  };
 
-    const { error } = await supabase
-      .from('evaluations')
-      .insert([
-        { 
-          subject: newSession.subject, 
-          future_axis: newSession.futureAxis, 
-          power_axis: newSession.powerAxis,
-          resilience_score: newSession.resilienceScore.total,
-          current_quadrant: newSession.currentQuadrant,
-          desired_quadrant: newSession.desiredQuadrant
-        }
-      ]);
-      
-    if (error) console.error("Erreur de sauvegarde:", error);
-  } catch (err) {
-    console.error("Erreur réseau:", err);
-  }
+  const viewReport = (report, shouldPrint = false) => {
+    setSelectedSession(report); setAutoPrint(shouldPrint); setView('report');
+  };
+
+  const saveSession = async report => {
+    if (savePending.current) return;
+    savePending.current = true; setSaving(true); setSaveError('');
+    try {
+      const saved = demo ? { ...report, saved: false } : await saveReport(report, user.id);
+      if (!active.current) return;
+      setSessions(previous => [saved, ...previous.filter(item => item.id !== saved.id)]);
+      viewReport(saved);
+    } catch (error) {
+      if (active.current) setSaveError(reportErrorMessage(error));
+    } finally {
+      savePending.current = false;
+      if (active.current) setSaving(false);
+    }
+  };
+
+  const logout = async () => {
+    if (demo) { onExit(); return; }
+    setLogoutBusy(true); setLogoutError('');
+    try {
+      const { error } = await supabase.auth.signOut({ scope: 'local' });
+      if (error) throw error;
+      onExit();
+    } catch (error) {
+      if (active.current) { setLogoutError(authErrorMessage(error)); setLogoutBusy(false); }
+    }
+  };
+
+  return <>
+    {demo && <div role="status" className="no-print bg-amber-50 border-b border-amber-200 text-amber-900 p-3 text-center text-sm">
+      Mode démo : aucun rapport n’est enregistré en ligne. Les réponses disparaissent au rechargement ou à la fermeture de cet onglet.
+    </div>}
+    {view === 'dashboard' && <Dashboard user={user} sessions={sessions} demo={demo}
+      onLogout={logout} logoutBusy={logoutBusy} logoutError={logoutError}
+      onNewSession={() => { setSaveError(''); setView('tool'); }} onViewReport={viewReport}
+      history={history} onLoadMore={loadMore}
+      onRetry={() => { setHistory(previous => ({ ...previous, loading: true, error: '' })); setReload(value => value + 1); }} />}
+    {view === 'tool' && <AssessmentTool onSave={saveSession} saving={saving} saveError={saveError}
+      onCancel={() => { if (window.confirm('Quitter cette exploration ? Les réponses non enregistrées seront perdues.')) setView('dashboard'); }} />}
+    {view === 'report' && <>
+      {!demo && <p role="status" className="no-print bg-green-50 text-green-800 p-3 text-center">Rapport enregistré dans votre espace personnel.</p>}
+      <ReportView session={selectedSession} onBack={() => setView('dashboard')} autoPrint={autoPrint} />
+    </>}
+  </>;
 };
 
-  const handleViewReport = (session, shouldPrint = false) => {
-    setSelectedSession(session);
-    setAutoPrint(shouldPrint);
-    setCurrentView("report");
-  };
-
-  // Routing basique
-  if (currentView === "landing") return <LandingPage onNavigate={setCurrentView} />;
-  if (currentView === "auth") return <AuthPage onLogin={handleLogin} onBack={() => setCurrentView("landing")} />;
-  if (currentView === "dashboard" && user) return <Dashboard user={user} sessions={sessions} onLogout={handleLogout} onNewSession={() => setCurrentView("tool")} onViewReport={handleViewReport} />;
-  if (currentView === "tool" && user) return <AssessmentTool user={user} onSave={saveSession} onCancel={() => setCurrentView("dashboard")} />;
-  if (currentView === "report" && selectedSession) return <ReportView session={selectedSession} onBack={() => setCurrentView("dashboard")} autoPrint={autoPrint} />;
-
-  return <LandingPage onNavigate={setCurrentView} />;
+export default function App() {
+  const auth = useAuth();
+  const [publicView, setPublicView] = useState('landing');
+  const exit = () => { auth.clearError(); auth.finishRecovery(); setPublicView('landing'); };
+  const startDemo = () => setPublicView('demo');
+  if (auth.loading) return <main className="p-10" role="status">Restauration de votre session…</main>;
+  if (auth.session && auth.recovering) return <AuthPage recovery onRecovered={auth.finishRecovery} />;
+  if (auth.session) {
+    const account = auth.session.user;
+    const displayName = account.user_metadata?.display_name;
+    const user = { id: account.id, name: typeof displayName === 'string' && displayName.trim() ? displayName.trim().slice(0, 100) : account.email?.split('@')[0] || 'Utilisateur' };
+    return <UserWorkspace key={user.id} user={user} onExit={exit} />;
+  }
+  if (publicView === 'demo') return <UserWorkspace key="demo" user={{ id: 'demo', name: 'Utilisateur Démo' }} demo onExit={exit} />;
+  if (publicView === 'auth' || auth.error || auth.recovering) {
+    return <AuthPage onBack={exit} onDemo={startDemo}
+      initialError={auth.error || (auth.recovering ? 'Ce lien ne permet pas de réinitialiser votre mot de passe. Demandez un nouveau lien.' : '')} />;
+  }
+  return <LandingPage onNavigate={setPublicView} onDemo={startDemo} />;
 }
