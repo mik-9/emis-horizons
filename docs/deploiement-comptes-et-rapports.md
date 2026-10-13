@@ -37,10 +37,9 @@ table historique absente, afin de rendre la chaîne des anciennes migrations
 rejouable sur une base neuve. Il ne modifie pas une table déjà existante.
 
 Pour une base gérée avec la CLI Supabase, examiner d'abord l'historique distant
-et le résultat d'une simulation avant toute application. Sur le projet EMIS
-existant, les anciennes migrations de base et de restriction ne sont pas toutes
-inscrites dans l'historique, bien que leur état ait été vérifié avant la migration
-privée. Réconcilier cet historique avant un prochain `db push`.
+et le résultat d'une simulation avant toute application. L'historique du projet
+EMIS et celui de la prévisualisation de la PR nº 7 ont été réconciliés le
+13 octobre 2026 : les quatre versions correspondent désormais au dépôt.
 **Ne pas rejouer les anciennes politiques publiques avec `--include-all` sur une
 base déjà migrée** : cela pourrait rétablir les insertions anonymes alors que la
 migration privée serait ignorée car déjà enregistrée.
@@ -62,6 +61,45 @@ migration privée serait ignorée car déjà enregistrée.
   accessibles via les actions du plugin disponibles dans cette session.
 - La version publique actuelle fonctionne encore comme une démo : ses anciennes
   écritures anonymes sont désormais refusées. La nouvelle version reste en PR.
+
+### Réparation de l'historique le 13 octobre 2026
+
+Le contrôle GitHub `Supabase Preview` échouait avec
+`Remote migration versions not found in local migrations directory`.
+La prévisualisation avait appliqué `private_assessment_reports` sous l'ancien
+numéro `20260930000000`, avant son alignement sur le numéro de production
+`20260930164234`. Le contenu SQL était identique, hors séparation des instructions
+et mise en forme. Les colonnes, contraintes, politiques et droits des rapports
+privés correspondaient également.
+
+Réparation limitée à `supabase_migrations.schema_migrations`, sans exécuter de DDL :
+
+- Prévisualisation : remplacement du seul numéro de la migration privée, en
+  conservant son nom et ses instructions SQL.
+- Production : inscription de la migration de base déjà couverte par la table
+  existante et de l'ancienne restriction des insertions, désormais remplacée par
+  la fermeture complète des accès de la migration privée. Les instructions
+  historiques ont été enregistrées comme métadonnées, jamais réexécutées.
+- Versions communes au dépôt, à la production et à la prévisualisation :
+  `20260721000000`, `20260722000000`, `20260722000100`, `20260930164234`.
+- Comparaison avant/après : tables, colonnes, contraintes, politiques RLS et
+  privilèges inchangés. Sept évaluations historiques conservées avec empreinte
+  identique, zéro rapport privé et un compte en production. La prévisualisation
+  ne contient aucun utilisateur ni donnée métier.
+
+Cette réparation ne supprime pas toutes les différences historiques de schéma :
+la table fermée `evaluations` conserve notamment sa colonne `user_id` supplémentaire
+en production. Elle n'est pas utilisée par la nouvelle application et n'a pas été
+modifiée pour forcer une correspondance avec une base neuve.
+
+SMTP : réception réelle d'une invitation confirmée le 13 octobre après correction
+du nom d'utilisateur en adresse email complète. L'utilisateur a confirmé la
+vérification et l'enregistrement de l'URL du site, des deux redirections exactes
+et du minimum de 12 caractères pour les mots de passe. Les parcours complets de
+connexion et de récupération restent à vérifier après déploiement.
+
+Avant fusion, contrôler les résultats **du dernier commit** : `Quality`, statut
+Vercel et `Supabase Preview`. Un succès Vercel ne suffit pas à valider les migrations.
 
 ## 2. Activer et configurer l'authentification
 
